@@ -8,6 +8,29 @@ const ai = new GoogleGenAI({ apiKey });
 const modelName = 'gemini-2.5-flash';
 const ttsModelName = 'gemini-2.5-flash-preview-tts';
 
+// Global cache for TTS to improve performance
+const speechCache = new Map<string, ArrayBuffer>();
+
+// --- Helper for Rate Limiting (Exponential Backoff) ---
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const generateContentWithRetry = async (model: string, params: any, retries = 3, backoff = 2000): Promise<any> => {
+  try {
+    return await ai.models.generateContent({
+      model: model,
+      ...params
+    });
+  } catch (e: any) {
+    if (retries > 0 && (e.status === 429 || e.toString().includes('429') || e.toString().includes('RESOURCE_EXHAUSTED') || e.toString().includes('Quota'))) {
+       console.warn(`Rate limit hit for ${model}. Retrying in ${backoff}ms...`);
+       await delay(backoff);
+       return generateContentWithRetry(model, params, retries - 1, backoff * 2);
+    }
+    throw e;
+  }
+};
+
 // --- Schemas ---
 
 const summarySchema: Schema = {
@@ -119,8 +142,7 @@ export const generateSummary = async (text: string): Promise<BookSummary> => {
   IMPORTANT: The output must be in Chinese. If the book is in English, translate the summaries to Chinese.
   Text: ${text.substring(0, 30000)}...`; 
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -132,26 +154,27 @@ export const generateSummary = async (text: string): Promise<BookSummary> => {
   return JSON.parse(response.text) as BookSummary;
 };
 
-export const generateMindMap = async (text: string, detailed: boolean = false): Promise<string> => {
-  const complexityInstruction = detailed 
-    ? "Create a DETAILED hierarchical mind map. Use at least 3 levels of depth. Break down chapters into concepts, and concepts into key details." 
-    : "Create a high-level overview mind map.";
-
-  // Critical fix for Mermaid: Enforce quoting labels to prevent syntax errors with special chars
-  const prompt = `Create a Mermaid.js diagram code for a mind map of this book. 
-  ${complexityInstruction}
+export const generateMindMap = async (text: string): Promise<string> => {
+  // Always Detailed but Organized
+  const prompt = `Create a Mermaid.js diagram code for a detailed mind map of this book.
   
-  RULES FOR MERMAID SYNTAX:
-  1. Start with 'graph LR'.
-  2. You MUST wrap ALL node label texts in double quotes. Example: A["Book Title"] --> B["Chapter 1"]
-  3. Do NOT use brackets () [] {} inside the text string unless they are escaped, but better to avoid them.
-  4. Use Chinese for all node labels.
-  5. Output ONLY the code starting with 'graph'.
+  CRITICAL LAYOUT RULES:
+  1. Use 'graph LR' (Left-to-Right) orientation.
+  2. **STRUCTURE**: Create a hierarchical tree.
+     - Root: Book Title
+     - Level 1: Main Chapters/Themes (At least 4-6 branches)
+     - Level 2: Key Concepts for each chapter (At least 3-4 sub-branches each)
+     - Level 3: Specific Details (Optional, where relevant)
+  3. **Group related concepts** tightly.
+  4. **Short Text**: Node labels must be very short (keywords only, max 6-8 chars).
+  5. Use Chinese for all node labels.
+  6. Wrap all node text in double quotes. e.g. A["核心主题"]
+  7. Do NOT use special characters inside quotes that might break Mermaid syntax.
+  8. Output ONLY the code starting with 'graph LR'.
   
-  Text snippet: ${text.substring(0, 25000)}...`;
+  Text snippet: ${text.substring(0, 30000)}...`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "text/plain",
@@ -166,17 +189,23 @@ export const generateMindMap = async (text: string, detailed: boolean = false): 
 export const generateQuotes = async (text: string, existingQuotes: Quote[] = []): Promise<Quote[]> => {
   const existingText = existingQuotes.map(q => q.text).join(" | ");
   
-  const prompt = `Extract 5 'Golden Sentences' or key quotes from this text. 
-  1. 'text': The original quote (keep English if original is English).
-  2. 'translation': Chinese translation.
-  3. 'reason': Why it is important (in Chinese).
+  const prompt = `Extract the 5 most profound, philosophically significant, or structurally beautiful 'Golden Sentences' from the text.
+  
+  CRITICAL SELECTION CRITERIA:
+  - Focus on axioms, core arguments, or emotionally resonant insights.
+  - Avoid simple plot descriptions or mundane dialogue.
+  - The quotes should stand alone as wisdom.
+
+  OUTPUT FORMAT:
+  1. 'text': The original quote (keep exact original language).
+  2. 'translation': A **PRECISE, LITERARY, and POETIC** Chinese translation (信达雅). It must capture the exact nuance, tone, and depth of the original.
+  3. 'reason': A deep analysis of why this quote is significant to the book's theme (in Chinese).
   
   ${existingText ? `IMPORTANT: Do NOT include these quotes that were already generated: ${existingText}` : ''}
   
   Text snippet: ${text.substring(0, 20000)}...`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -190,16 +219,25 @@ export const generateQuotes = async (text: string, existingQuotes: Quote[] = [])
 export const generateVocab = async (text: string, existingWords: VocabItem[] = []): Promise<VocabItem[]> => {
   const existingList = existingWords.map(w => w.word).join(", ");
 
-  const prompt = `Extract exactly 10 difficult or key vocabulary words from this text (prefer English words if the text is English). 
-  Select a diverse range of words.
-  Provide IPA, Part of Speech, and Chinese meaning.
+  const prompt = `Identify exactly 10 ADVANCED, RARE, or DOMAIN-SPECIFIC vocabulary words from the text.
+  
+  CRITICAL SELECTION CRITERIA:
+  1. **STRICTLY FILTER** for CEFR Level C1/C2 words, GRE/SAT advanced vocabulary, or specialized academic terms.
+  2. **EXCLUDE** all common A1-B2 level words (e.g., never list simple words like 'time', 'good', 'people', 'life').
+  3. Focus on words that carry the **intellectual weight** of the argument or the **stylistic flair** of the author.
+  4. If the text is Chinese, select advanced idioms (Chengyu) or literary terms.
+  
+  OUTPUT FORMAT:
+  - word: The word in its lemma form.
+  - ipa: International Phonetic Alphabet.
+  - pos: Part of Speech.
+  - meaning: A precise, context-aware Chinese definition that explains *how* the word is used here.
   
   ${existingList ? `Avoid these words: ${existingList}` : ''}
 
   Text snippet: ${text.substring(0, 20000)}...`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -225,8 +263,7 @@ export const generateQuiz = async (text: string, existingQuestions: QuizQuestion
 
   Text snippet: ${text.substring(0, 20000)}...`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -243,8 +280,7 @@ export const generateActionPlan = async (text: string): Promise<ActionDay[]> => 
   IMPORTANT: Write the content in Chinese.
   Text snippet: ${text.substring(0, 20000)}...`;
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -255,19 +291,28 @@ export const generateActionPlan = async (text: string): Promise<ActionDay[]> => 
   return JSON.parse(response.text) as ActionDay[];
 };
 
-export const generateReaderContent = async (text: string): Promise<ReaderSegment[]> => {
+export const generateReaderContent = async (text: string, focusChapter?: string): Promise<ReaderSegment[]> => {
+  const focusInstruction = focusChapter 
+    ? `FOCUS: The user is specifically reading the chapter titled "${focusChapter}". Ensure the extracted segments are primarily from this section.` 
+    : "";
+
   const prompt = `
-  Analyze the text provided. 
+  Analyze the text provided. ${focusInstruction}
+  
   1. Break the text into logical paragraphs or segments (approx 2-4 sentences each).
   2. For each segment, provide the 'original' text.
   3. Provide a 'translation' in Chinese (if original is English) or English (if original is Chinese).
+  
+  **TRANSLATION QUALITY REQUIREMENT:**
+  - The translation must be **EXTREMELY PRECISE and ACADEMIC**. 
+  - It should strictly reflect the author's tone, nuance, and terminology.
+  - Do NOT use generic or machine-like translation. Use literary Chinese (信达雅).
+
   4. Ensure the output is a JSON array of objects.
   
-  Do this for the first 15-20 significant paragraphs.
-  Text: ${text.substring(0, 15000)}...`;
+  Text: ${text.substring(0, 20000)}...`; 
 
-  const response = await ai.models.generateContent({
-    model: modelName,
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -286,7 +331,8 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
     ESSAY: "随笔/印象式（蒙田式）：以“我”的读法为线，容许犹疑与分岔，用具体细节承托观点。",
     NIETZSCHE: "尼采式：立场鲜明、修辞强烈、价值重估，善用对照与警句。",
     COMPARATIVE: "比较型：横向比同类书、纵向比作者前后作，差异—原因—判断层层推进。",
-    DIALOGUE: "对话/商榷型：与作者或他评观点交锋，呈现“问题—回应—再论证”的链条。"
+    DIALOGUE: "对话/商榷型：与作者或他评观点交锋，呈现“问题—回应—再论证”的链条。",
+    SUDONGPO: "苏东坡（古文）式：使用文言文或半文半白，气势磅礴，豁达洒脱，引经据典，兼具文学性与哲理性。"
   };
 
   const instruction = styleInstructions[style];
@@ -320,19 +366,18 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
   Output Format (JSON):
   - titles: 3 catchy candidate titles.
   - oneSentenceSummary: Max 30 chars.
-  - contentMarkdown: The review body in Markdown.
+  - contentMarkdown: The full review body in Markdown.
   - selfCheckList: 4 items checking argument clarity, evidence, logic, and accuracy.
 
   Text: ${text.substring(0, 40000)}...
   `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash", // Using standard flash for text generation tasks
+  const response = await generateContentWithRetry("gemini-2.5-flash", {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: reviewSchema,
-      temperature: 0.8, // Slightly higher for creativity in reviews
+      temperature: 0.8,
     }
   });
 
@@ -343,15 +388,20 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
 
 export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> => {
   if (!text || !text.trim()) return null;
+  
+  // Check global cache first
+  if (speechCache.has(text)) {
+      return speechCache.get(text)!.slice(0); // Return a copy of buffer
+  }
+
   try {
-    const response = await ai.models.generateContent({
-      model: ttsModelName,
+    const response = await generateContentWithRetry(ttsModelName, {
       contents: [{ parts: [{ text: text }] }],
       config: {
-        responseModalities: ['AUDIO'] as any, // Explicitly cast to any to allow string 'AUDIO' if enum fails
+        responseModalities: [Modality.AUDIO], 
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Kore' }, // Kore is a good balanced voice
+            prebuiltVoiceConfig: { voiceName: 'Kore' }, 
           },
         },
       },
@@ -365,7 +415,10 @@ export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> 
       for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
       }
-      return bytes.buffer;
+      
+      const buffer = bytes.buffer;
+      speechCache.set(text, buffer.slice(0)); // Store copy in cache
+      return buffer;
     }
     return null;
   } catch (e) {
@@ -374,17 +427,10 @@ export const generateSpeech = async (text: string): Promise<ArrayBuffer | null> 
   }
 };
 
-/**
- * Decodes raw PCM audio data from Gemini (16-bit, 24kHz usually) into an AudioBuffer.
- * This is necessary because browser's decodeAudioData expects WAV/MP3 headers which raw stream lacks.
- */
 export const decodePCM = (ctx: AudioContext, arrayBuffer: ArrayBuffer, sampleRate: number = 24000): AudioBuffer => {
   const pcmData = new Int16Array(arrayBuffer);
-  // Create a buffer: 1 channel, proper length, defined sample rate
   const buffer = ctx.createBuffer(1, pcmData.length, sampleRate);
   const channelData = buffer.getChannelData(0);
-  
-  // Convert 16-bit PCM to float [-1, 1]
   for (let i = 0; i < pcmData.length; i++) {
     channelData[i] = pcmData[i] / 32768.0;
   }
@@ -396,7 +442,8 @@ export const createChatSession = (systemInstruction: string) => {
   return ai.chats.create({
     model: modelName,
     config: {
-      systemInstruction: systemInstruction + " Answer in Chinese.",
+      // Clean quotes instruction added
+      systemInstruction: systemInstruction + " Answer in Chinese. Do NOT wrap your answer in quotes. Do not use Markdown quotes block unless it is code.",
     }
   });
 };

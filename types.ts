@@ -1,4 +1,5 @@
 
+
 export enum AppState {
   UPLOAD = 'UPLOAD',
   PROCESSING = 'PROCESSING',
@@ -16,7 +17,7 @@ export enum TabView {
   REVIEW = 'REVIEW', // New Tab
 }
 
-export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE';
+export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO';
 
 export interface ChapterSummary {
   chapterTitle: string;

@@ -102,7 +102,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
       source.start(0, offset);
   };
 
-  const playSegmentAudio = async (index: number, offset: number = 0) => {
+  const playSegmentAudio = async (index: number, offset: number = 0, overrideLang?: 'original' | 'translation') => {
     if (!segments || index >= segments.length) {
       setIsPlaying(false);
       return;
@@ -112,14 +112,16 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
 
     try {
         // If we have a cached buffer and we are resuming (offset > 0) or just replaying the same index
+        // Only use cache if language hasn't changed (overrideLang provided implies a change check external to this or explicit intent)
+        // Ideally we assume if audioBufferRef.current exists, it matches the current context unless explicitly cleared.
         if (audioBufferRef.current && offset > 0) {
             playAudioBuffer(audioBufferRef.current, offset);
             setIsAudioLoading(false);
             return;
         }
 
-        // New Fetch
-        const textToSpeak = readLanguage === 'original' ? segments[index].original : segments[index].translation;
+        const lang = overrideLang || readLanguage;
+        const textToSpeak = lang === 'original' ? segments[index].original : segments[index].translation;
         
         if (!textToSpeak || !textToSpeak.trim()) {
             console.warn("Skipping empty text segment", index);
@@ -142,7 +144,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         // Cache it
         audioBufferRef.current = audioBuffer;
         
-        playAudioBuffer(audioBuffer, 0);
+        playAudioBuffer(audioBuffer, offset);
 
     } catch (e) {
         console.error("Playback error", e);
@@ -168,8 +170,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
       // RESUME Logic
       isManuallyPausedRef.current = false;
       setIsPlaying(true);
-      // Logic handled by effect below or direct call? 
-      // Better to call direct to avoid effect race conditions with 'pausedTimeRef'
       playSegmentAudio(currentIndex, pausedTimeRef.current);
     }
   };
@@ -180,21 +180,40 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     isManuallyPausedRef.current = false;
     setCurrentIndex(index);
     setIsPlaying(true);
-    // Explicitly call play to start immediately (effect might lag or be complex)
-    // Actually, let the effect handle the "Index Changed" trigger to avoid double calls
-    // We just need to ensure pausedTimeRef is 0 (handled in stopAudio(true))
+  };
+
+  const handleLanguageSwitch = (newLang: 'original' | 'translation') => {
+    if (readLanguage === newLang) return;
+
+    // Calculate current offset based on playback state
+    let offset = 0;
+    if (isPlaying && audioContextRef.current) {
+        offset = audioContextRef.current.currentTime - startTimeRef.current;
+    } else if (pausedTimeRef.current > 0) {
+        offset = pausedTimeRef.current;
+    }
+
+    // Switch state
+    setReadLanguage(newLang);
+
+    // Stop current audio but preserve relative progress logic conceptually
+    stopAudio(false);
+    
+    // Nuke the buffer because content changed (language changed)
+    audioBufferRef.current = null;
+
+    if (isPlaying) {
+        // Resume immediately with new language at same offset
+        playSegmentAudio(currentIndex, offset, newLang);
+    } else {
+        // Just update the pause pointer so next play uses it
+        pausedTimeRef.current = offset;
+    }
   };
 
   // Effect: Watch for index changes to auto-play if we are in "Playing" mode
-  // This handles the "Next Segment" auto-advance
   useEffect(() => {
-    // Only auto-play if we are flagged as playing and not loading
-    // We check pausedTimeRef to distinguish between "Next Segment" (0) and "Resume" (>0)
-    // But "Resume" is usually triggered by togglePlay manually. 
-    // This effect is mainly for when 'currentIndex' updates via auto-advance or click.
     if (isPlaying && !isAudioLoading) {
-        // If we just clicked a segment, pausedTimeRef is 0.
-        // If we auto-advanced, pausedTimeRef should be 0.
         playSegmentAudio(currentIndex, 0); 
     }
   }, [currentIndex]);
@@ -287,30 +306,13 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
 
          <div className="flex items-center gap-4 bg-slate-100 p-1 rounded-lg">
              <button 
-               onClick={() => {
-                   setReadLanguage('original');
-                   // If playing, we need to restart current segment with new lang
-                   if(isPlaying || pausedTimeRef.current > 0) { 
-                       stopAudio(true); 
-                       isManuallyPausedRef.current = false;
-                       setIsPlaying(true);
-                       playSegmentAudio(currentIndex, 0);
-                   }
-               }}
+               onClick={() => handleLanguageSwitch('original')}
                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${readLanguage === 'original' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
              >
                 原文 (EN)
              </button>
              <button 
-               onClick={() => {
-                   setReadLanguage('translation');
-                   if(isPlaying || pausedTimeRef.current > 0) { 
-                       stopAudio(true); 
-                       isManuallyPausedRef.current = false;
-                       setIsPlaying(true);
-                       playSegmentAudio(currentIndex, 0);
-                   }
-               }}
+               onClick={() => handleLanguageSwitch('translation')}
                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${readLanguage === 'translation' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
              >
                 译文 (CN)

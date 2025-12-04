@@ -1,8 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Sparkles } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, User, Sparkles, Volume2, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
-import { createChatSession } from '../services/geminiService';
+import { createChatSession, generateSpeech, decodePCM } from '../services/geminiService';
 import { Chat } from '@google/genai';
 
 interface ChatDrawerProps {
@@ -16,8 +16,11 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [playingMsgId, setPlayingMsgId] = useState<string | null>(null);
+
   const chatSessionRef = useRef<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (context && !chatSessionRef.current) {
@@ -51,8 +54,11 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
 
     try {
         const result = await chatSessionRef.current.sendMessage({ message: userMsg.text });
-        const text = result.text || "我无法生成回复。";
+        let text = result.text || "我无法生成回复。";
         
+        // Strip quotes if they exist at start/end
+        text = text.replace(/^["']|["']$/g, '').trim();
+
         setMessages(prev => [...prev, {
             id: (Date.now() + 1).toString(),
             role: 'model',
@@ -69,6 +75,47 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
         }]);
     } finally {
         setIsLoading(false);
+    }
+  };
+
+  const playMessageAudio = async (text: string, id: string) => {
+    if (playingMsgId === id) {
+        if (audioContextRef.current) {
+            audioContextRef.current.close();
+            audioContextRef.current = null;
+        }
+        setPlayingMsgId(null);
+        return;
+    }
+
+    // Stop any existing audio
+    if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+    }
+
+    setPlayingMsgId(id);
+
+    try {
+        const arrayBuffer = await generateSpeech(text);
+        if (!arrayBuffer) throw new Error("No audio generated");
+
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        
+        const ctx = audioContextRef.current;
+        const audioBuffer = decodePCM(ctx, arrayBuffer);
+        
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        
+        source.onended = () => {
+            setPlayingMsgId(null);
+        };
+    } catch (e) {
+        console.error("Chat Audio Playback Error", e);
+        setPlayingMsgId(null);
     }
   };
 
@@ -116,14 +163,27 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
                  {msg.role === 'user' ? <User className="w-5 h-5 text-slate-500" /> : <Bot className="w-5 h-5 text-emerald-600" />}
                </div>
                
-               {/* Bubble */}
-               <div className={`relative px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm max-w-[85%] ${
-                   msg.role === 'user' 
-                   ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-tr-none' 
-                   : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
-               }`}>
-                 {msg.text}
-                 {/* Timestamp/Status optional */}
+               {/* Bubble Group */}
+               <div className="flex flex-col gap-1 items-start max-w-[85%]">
+                   <div className={`relative px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm ${
+                       msg.role === 'user' 
+                       ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-tr-none' 
+                       : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none'
+                   }`}>
+                     {msg.text}
+                   </div>
+                   
+                   {/* TTS Button for Model Messages */}
+                   {msg.role === 'model' && (
+                       <button 
+                         onClick={() => playMessageAudio(msg.text, msg.id)}
+                         className={`ml-1 mt-1 p-1.5 rounded-full transition-colors flex items-center gap-1 ${playingMsgId === msg.id ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:bg-slate-200'}`}
+                         title="朗读回答"
+                       >
+                         {playingMsgId === msg.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Volume2 className="w-3.5 h-3.5" />}
+                         {playingMsgId === msg.id && <span className="text-[10px] font-bold">播放中...</span>}
+                       </button>
+                   )}
                </div>
             </div>
           ))}

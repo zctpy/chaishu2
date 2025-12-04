@@ -27,10 +27,10 @@ interface DashboardProps {
   isRefreshingQuiz: boolean;
   onGenerateDetailedMindMap: () => void;
   isGeneratingMindMap: boolean;
-  onGenerateReader: () => void;
+  onGenerateReader: (chapterIndex?: number) => void;
   onLoadMoreReader: () => void;
   isGeneratingReader: boolean;
-  onGenerateReview: (style: ReviewStyle) => void;
+  onGenerateReview: (style: ReviewStyle, language: 'CN' | 'EN') => void;
   isGeneratingReview: boolean;
 }
 
@@ -47,7 +47,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
   const [showScore, setShowScore] = useState(false);
   const [quizLang, setQuizLang] = useState<'CN' | 'EN'>('CN');
-  const [reviewStyle, setReviewStyle] = useState<ReviewStyle>('GENTLE');
+  
+  // Separate state for Review Language to avoid conflict
+  const [reviewLang, setReviewLang] = useState<'CN' | 'EN'>('CN');
+  const [reviewStyle, setReviewStyle] = useState<ReviewStyle>('NIETZSCHE');
   
   // Share Modal State
   const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -59,6 +62,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Audio State
   const [playingAudio, setPlayingAudio] = useState<string | null>(null); 
   const audioContextRef = React.useRef<AudioContext | null>(null);
+  
+  // Local Audio Buffer Cache (Simple In-Memory)
+  const audioBufferCache = React.useRef<Map<string, AudioBuffer>>(new Map());
 
   const playHighQualitySpeech = async (text: string, id: string) => {
     if (playingAudio) {
@@ -73,18 +79,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     setPlayingAudio(id);
 
     try {
-        const arrayBuffer = await generateSpeech(text);
-        if (!arrayBuffer) throw new Error("No audio generated");
-
-        if (!audioContextRef.current) {
-            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-        } else if (audioContextRef.current.state === 'closed') {
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
              audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
-        
         const ctx = audioContextRef.current;
-        // USE MANUAL PCM DECODING
-        const audioBuffer = decodePCM(ctx, arrayBuffer);
+        
+        // Check local cache first
+        let audioBuffer = audioBufferCache.current.get(text);
+
+        if (!audioBuffer) {
+             const arrayBuffer = await generateSpeech(text);
+             if (!arrayBuffer) throw new Error("No audio generated");
+             // Decode and cache
+             audioBuffer = decodePCM(ctx, arrayBuffer);
+             audioBufferCache.current.set(text, audioBuffer);
+        }
         
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
@@ -238,14 +247,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                    <Download className="w-4 h-4" />
                    保存图片
                  </button>
-                 <button 
-                  onClick={onGenerateDetailedMindMap}
-                  disabled={isGeneratingMindMap}
-                  className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all shadow-sm ${isGeneratingMindMap ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'}`}
-                 >
-                   <RefreshCw className={`w-4 h-4 ${isGeneratingMindMap ? 'animate-spin' : ''}`} />
-                   {isGeneratingMindMap ? '生成中...' : '生成详细版'}
-                 </button>
                </div>
             </div>
             <div id="mermaid-container-div" className="flex-1 bg-white p-6 overflow-hidden relative">
@@ -259,9 +260,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="animate-slideUp">
             <ReaderView 
                 segments={data.readerContent} 
+                chapters={data.summary?.chapters}
                 isLoading={isGeneratingReader} 
-                onGenerate={onGenerateReader} 
-                onLoadMore={onLoadMoreReader}
+                onGenerate={onGenerateReader}
             />
           </div>
         );
@@ -497,17 +498,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                </div>
                
                <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-xl">
-                  {/* Language Toggle for Review */}
+                  {/* Language Toggle for Review - Fixed Logic */}
                   <div className="flex bg-white rounded-lg p-1 shadow-sm">
                       <button 
-                        onClick={() => setQuizLang('CN')} 
-                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${quizLang === 'CN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setReviewLang('CN')} 
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${reviewLang === 'CN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           中
                       </button>
                       <button 
-                        onClick={() => setQuizLang('EN')} 
-                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${quizLang === 'EN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        onClick={() => setReviewLang('EN')} 
+                        className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${reviewLang === 'EN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           En
                       </button>
@@ -526,11 +527,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                       <option value="NIETZSCHE">尼采式(风格化)</option>
                       <option value="COMPARATIVE">比较阅读型</option>
                       <option value="DIALOGUE">对话/商榷型</option>
+                      <option value="SUDONGPO">苏东坡（古文）式</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                   <button
-                    onClick={() => onGenerateReview(reviewStyle)}
+                    onClick={() => onGenerateReview(reviewStyle, reviewLang)} // Correctly passing reviewLang
                     disabled={isGeneratingReview}
                     className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-lg font-bold shadow-lg shadow-slate-900/10 hover:bg-emerald-600 hover:shadow-emerald-500/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                   >
@@ -565,14 +567,38 @@ const Dashboard: React.FC<DashboardProps> = ({
                          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-800 mb-6 leading-tight max-w-4xl mx-auto">
                            {currentReview.titles[0]}
                          </h2>
-                         <div className="inline-block bg-emerald-50 text-emerald-800 px-6 py-3 rounded-xl text-lg font-medium border border-emerald-100/50 relative">
-                            <Quote className="w-8 h-8 text-emerald-200 absolute -top-4 -left-4" />
-                            {currentReview.oneSentenceSummary}
+                         <div className="relative inline-block group/summary">
+                            <div className="bg-emerald-50 text-emerald-800 px-6 py-3 rounded-xl text-lg font-medium border border-emerald-100/50 relative pr-12">
+                                <Quote className="w-8 h-8 text-emerald-200 absolute -top-4 -left-4" />
+                                {currentReview.oneSentenceSummary}
+                                
+                                <button 
+                                    onClick={() => openShareModal({
+                                        type: 'QUOTE', // Use QUOTE type for consistent card look
+                                        title: currentReview.titles[0],
+                                        author: data.summary?.author,
+                                        text: currentReview.oneSentenceSummary,
+                                        subText: "深度书评核心观点",
+                                        footer: "BookMaster AI Analysis"
+                                    })}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white rounded-full shadow-sm text-emerald-600 opacity-0 group-hover/summary:opacity-100 transition-opacity hover:bg-emerald-500 hover:text-white"
+                                    title="分享观点"
+                                >
+                                    <Share2 className="w-4 h-4" />
+                                </button>
+                            </div>
                          </div>
                      </div>
 
-                     {/* Main Markdown Content */}
-                     <article className="prose prose-slate prose-lg max-w-none prose-headings:font-bold prose-headings:text-slate-800 prose-p:text-slate-600 prose-p:leading-relaxed prose-blockquote:border-l-4 prose-blockquote:border-emerald-500 prose-blockquote:bg-slate-50 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:not-italic prose-strong:text-emerald-700">
+                     {/* Main Markdown Content - Beautified Headers */}
+                     <article className="prose prose-slate prose-lg max-w-none 
+                        prose-headings:font-bold prose-headings:text-slate-900 prose-headings:font-serif-sc
+                        prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:border-l-[6px] prose-h2:border-emerald-500 prose-h2:pl-6 prose-h2:bg-gradient-to-r prose-h2:from-emerald-50 prose-h2:to-transparent prose-h2:py-3 prose-h2:rounded-r-lg
+                        prose-h3:text-xl prose-h3:text-emerald-800 prose-h3:mt-8 prose-h3:mb-4 prose-h3:flex prose-h3:items-center prose-h3:before:content-[''] prose-h3:before:w-2 prose-h3:before:h-2 prose-h3:before:bg-emerald-400 prose-h3:before:rounded-full prose-h3:before:mr-3
+                        prose-p:text-slate-600 prose-p:leading-8 
+                        prose-blockquote:border-l-4 prose-blockquote:border-emerald-400 prose-blockquote:bg-slate-50 prose-blockquote:py-4 prose-blockquote:px-6 prose-blockquote:rounded-r-xl prose-blockquote:not-italic prose-blockquote:text-slate-700
+                        prose-strong:text-emerald-700 prose-strong:font-bold"
+                     >
                         <ReactMarkdown>{currentReview.contentMarkdown}</ReactMarkdown>
                      </article>
 
@@ -603,12 +629,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </button>
                         <button 
                             onClick={() => openShareModal({
-                                type: 'SUMMARY',
+                                type: 'QUOTE', // Use QUOTE type for styling
                                 title: currentReview.titles[0],
                                 author: data.summary?.author,
-                                text: currentReview.oneSentenceSummary, // Only share summary to avoid card truncation
-                                footer: "BookMaster Deep Review",
-                                subText: "点击复制书评全文分享"
+                                text: currentReview.oneSentenceSummary, // Share the summary
+                                subText: "深度书评核心观点",
+                                footer: "BookMaster Deep Review"
                             })}
                             className="flex items-center gap-2 text-white bg-emerald-600 font-bold hover:bg-emerald-700 px-4 py-2 rounded-lg transition-colors shadow-lg shadow-emerald-500/20"
                         >
