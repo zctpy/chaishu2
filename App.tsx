@@ -17,7 +17,6 @@ const App: React.FC = () => {
   const [refreshingQuotes, setRefreshingQuotes] = useState(false);
   const [refreshingVocab, setRefreshingVocab] = useState(false);
   const [refreshingQuiz, setRefreshingQuiz] = useState(false);
-  const [generatingMindMap, setGeneratingMindMap] = useState(false);
   const [generatingReader, setGeneratingReader] = useState(false);
   const [generatingReview, setGeneratingReview] = useState(false);
 
@@ -31,16 +30,18 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Parallel execution for core components
-      const [summary, mindMap, quotes] = await Promise.all([
-        geminiService.generateSummary(text),
-        geminiService.generateMindMap(text), // Always detailed now
-        geminiService.generateQuotes(text)
-      ]);
+      // Sequential execution to prevent 429 errors (Rate Limit)
+      // We purposefully wait between calls to be gentle on the API quota
+      
+      const summary = await geminiService.generateSummary(text);
+      
+      // Delay to avoid burst limit
+      await new Promise(r => setTimeout(r, 2000));
+      
+      const quotes = await geminiService.generateQuotes(text);
 
       setAnalysisData({
         summary,
-        mindMapMarkdown: mindMap,
         quotes
       });
 
@@ -64,15 +65,15 @@ const App: React.FC = () => {
   const loadSecondaryData = async (text: string) => {
     try {
       // Stagger calls to avoid rate limits
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1500));
       const vocab = await geminiService.generateVocab(text);
       setAnalysisData(prev => ({ ...prev, vocab }));
 
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1500));
       const quiz = await geminiService.generateQuiz(text);
       setAnalysisData(prev => ({ ...prev, quiz }));
 
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1500));
       const plan = await geminiService.generateActionPlan(text);
       setAnalysisData(prev => ({ ...prev, actionPlan: plan }));
       
@@ -125,22 +126,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGenerateDetailedMindMap = async () => {
-    // Deprecated button handler, but kept for compatibility just in case,
-    // though the UI button will be removed.
-    if (!bookText) return;
-    setGeneratingMindMap(true);
-    try {
-      const newMap = await geminiService.generateMindMap(bookText); 
-      setAnalysisData(prev => ({ ...prev, mindMapMarkdown: newMap }));
-    } catch (e) {
-      console.error(e);
-      alert("生成脑图超时，请重试");
-    } finally {
-      setGeneratingMindMap(false);
-    }
-  };
-
   const handleGenerateReader = async (chapterIndex?: number) => {
     if (!bookText) return;
     
@@ -148,20 +133,23 @@ const App: React.FC = () => {
     let startPos = readerCursor;
     let focusChapter = "";
 
-    if (chapterIndex !== undefined && analysisData.summary?.chapters) {
+    // Safeguard: Ensure chapterIndex is a number before using it as index
+    if (typeof chapterIndex === 'number' && chapterIndex !== undefined && analysisData.summary?.chapters) {
         const chapter = analysisData.summary.chapters[chapterIndex];
-        focusChapter = chapter.chapterTitle;
-        
-        // Try to find the chapter in text
-        const foundIndex = bookText.indexOf(focusChapter);
-        if (foundIndex !== -1) {
-            startPos = foundIndex;
-        } else {
-             // Heuristic Fallback
-             startPos = Math.floor((chapterIndex / analysisData.summary.chapters.length) * bookText.length);
+        if (chapter) {
+          focusChapter = chapter.chapterTitle;
+          
+          // Try to find the chapter in text
+          const foundIndex = bookText.indexOf(focusChapter);
+          if (foundIndex !== -1) {
+              startPos = foundIndex;
+          } else {
+              // Heuristic Fallback
+              startPos = Math.floor((chapterIndex / analysisData.summary.chapters.length) * bookText.length);
+          }
+          // Update cursor to this new position
+          setReaderCursor(startPos);
         }
-        // Update cursor to this new position
-        setReaderCursor(startPos);
     }
 
     setGeneratingReader(true);
@@ -210,7 +198,8 @@ const App: React.FC = () => {
     setGeneratingReview(true);
     try {
         const review = await geminiService.generateReview(bookText, style, language); 
-        setAnalysisData(prev => ({ ...prev, bookReview: review }));
+        // Manually inject language for UI tracking
+        setAnalysisData(prev => ({ ...prev, bookReview: { ...review, language } }));
     } catch(e) {
         console.error(e);
         alert("生成书评失败，请重试");
@@ -297,9 +286,7 @@ const App: React.FC = () => {
             isRefreshingVocab={refreshingVocab}
             onRefreshQuiz={handleRefreshQuiz}
             isRefreshingQuiz={refreshingQuiz}
-            onGenerateDetailedMindMap={handleGenerateDetailedMindMap}
-            isGeneratingMindMap={generatingMindMap}
-            onGenerateReader={handleGenerateReader} // Updated
+            onGenerateReader={handleGenerateReader} 
             onLoadMoreReader={handleLoadMoreReader}
             isGeneratingReader={generatingReader}
             onGenerateReview={handleGenerateReview}

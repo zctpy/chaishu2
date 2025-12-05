@@ -32,6 +32,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
             ${context.substring(0, 50000)}...
             ---
             Answer primarily based on this text. If the user asks something outside the book, politely steer them back or answer briefly.
+            IMPORTANT: Provide direct answers. Do NOT wrap the entire response in quotation marks ("").
         `);
     }
   }, [context]);
@@ -56,8 +57,15 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
         const result = await chatSessionRef.current.sendMessage({ message: userMsg.text });
         let text = result.text || "我无法生成回复。";
         
-        // Strip quotes if they exist at start/end
-        text = text.replace(/^["']|["']$/g, '').trim();
+        // Robust quote stripping: Trim first, then check/remove wrapping quotes
+        text = text.trim();
+        if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+            text = text.slice(1, -1);
+        }
+        // Also remove accidental markdown code block if model wraps plain text in it
+        if (text.startsWith('```') && text.endsWith('```')) {
+             text = text.replace(/^```(markdown)?|```$/g, '').trim();
+        }
 
         setMessages(prev => [...prev, {
             id: (Date.now() + 1).toString(),
@@ -79,6 +87,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
   };
 
   const playMessageAudio = async (text: string, id: string) => {
+    // If clicking the same message that is playing, stop it.
     if (playingMsgId === id) {
         if (audioContextRef.current) {
             audioContextRef.current.close();
@@ -88,7 +97,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
         return;
     }
 
-    // Stop any existing audio
+    // Stop any existing audio before starting new one
     if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
@@ -100,9 +109,15 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ context }) => {
         const arrayBuffer = await generateSpeech(text);
         if (!arrayBuffer) throw new Error("No audio generated");
 
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
         
         const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+
         const audioBuffer = decodePCM(ctx, arrayBuffer);
         
         const source = ctx.createBufferSource();

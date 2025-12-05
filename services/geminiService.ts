@@ -15,17 +15,24 @@ const speechCache = new Map<string, ArrayBuffer>();
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const generateContentWithRetry = async (model: string, params: any, retries = 3, backoff = 2000): Promise<any> => {
+const generateContentWithRetry = async (model: string, params: any, retries = 5, backoff = 5000): Promise<any> => {
   try {
     return await ai.models.generateContent({
       model: model,
       ...params
     });
   } catch (e: any) {
-    if (retries > 0 && (e.status === 429 || e.toString().includes('429') || e.toString().includes('RESOURCE_EXHAUSTED') || e.toString().includes('Quota'))) {
-       console.warn(`Rate limit hit for ${model}. Retrying in ${backoff}ms...`);
+    const errorStr = e.toString().toLowerCase();
+    const isRateLimit = e.status === 429 || 
+                        errorStr.includes('429') || 
+                        errorStr.includes('resource_exhausted') || 
+                        errorStr.includes('quota') ||
+                        errorStr.includes('limit');
+
+    if (retries > 0 && isRateLimit) {
+       console.warn(`Rate limit hit for ${model}. Retrying in ${backoff}ms... (Attempts left: ${retries})`);
        await delay(backoff);
-       return generateContentWithRetry(model, params, retries - 1, backoff * 2);
+       return generateContentWithRetry(model, params, retries - 1, backoff * 1.5); // Increase backoff by 1.5x each time
     }
     throw e;
   }
@@ -154,38 +161,6 @@ export const generateSummary = async (text: string): Promise<BookSummary> => {
   return JSON.parse(response.text) as BookSummary;
 };
 
-export const generateMindMap = async (text: string): Promise<string> => {
-  // Always Detailed but Organized
-  const prompt = `Create a Mermaid.js diagram code for a detailed mind map of this book.
-  
-  CRITICAL LAYOUT RULES:
-  1. Use 'graph LR' (Left-to-Right) orientation.
-  2. **STRUCTURE**: Create a hierarchical tree.
-     - Root: Book Title
-     - Level 1: Main Chapters/Themes (At least 4-6 branches)
-     - Level 2: Key Concepts for each chapter (At least 3-4 sub-branches each)
-     - Level 3: Specific Details (Optional, where relevant)
-  3. **Group related concepts** tightly.
-  4. **Short Text**: Node labels must be very short (keywords only, max 6-8 chars).
-  5. Use Chinese for all node labels.
-  6. Wrap all node text in double quotes. e.g. A["核心主题"]
-  7. Do NOT use special characters inside quotes that might break Mermaid syntax.
-  8. Output ONLY the code starting with 'graph LR'.
-  
-  Text snippet: ${text.substring(0, 30000)}...`;
-
-  const response = await generateContentWithRetry(modelName, {
-    contents: prompt,
-    config: {
-      responseMimeType: "text/plain",
-    }
-  });
-
-  let code = response.text.trim();
-  code = code.replace(/^```mermaid\s*/, '').replace(/^```\s*/, '').replace(/```$/, '');
-  return code;
-};
-
 export const generateQuotes = async (text: string, existingQuotes: Quote[] = []): Promise<Quote[]> => {
   const existingText = existingQuotes.map(q => q.text).join(" | ");
   
@@ -221,28 +196,32 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
 
   const prompt = `Identify exactly 10 ADVANCED, RARE, or DOMAIN-SPECIFIC vocabulary words from the text.
   
-  CRITICAL SELECTION CRITERIA:
-  1. **STRICTLY FILTER** for CEFR Level C1/C2 words, GRE/SAT advanced vocabulary, or specialized academic terms.
-  2. **EXCLUDE** all common A1-B2 level words (e.g., never list simple words like 'time', 'good', 'people', 'life').
-  3. Focus on words that carry the **intellectual weight** of the argument or the **stylistic flair** of the author.
-  4. If the text is Chinese, select advanced idioms (Chengyu) or literary terms.
+  You are a strict Lexicographer and Professor. Your goal is to find words that elevate the reader's vocabulary level to a C2 or Academic mastery.
+
+  STRICT SELECTION GUIDELINES:
+  1. **DIFFICULTY FILTER**: STRICTLY CEFR Level C1/C2, GRE/SAT/LSAT advanced vocabulary.
+  2. **EXCLUSION LIST**: DO NOT include common words like 'time', 'people', 'good', 'think', 'important', 'understand'. If a word is in the top 3000 most frequent English words, DISCARD IT.
+  3. **CONTEXTUAL IMPORTANCE**: Select words that carry key philosophical, scientific, or literary weight in this specific text.
+  4. **LANGUAGE NUANCE**:
+     - If English: Look for sophisticated synonyms (e.g., 'ephemeral' vs 'short', 'ubiquitous' vs 'everywhere').
+     - If Chinese: Look for Idioms (Chengyu), Classical allusions, or specific technical terminology.
   
   OUTPUT FORMAT:
   - word: The word in its lemma form.
   - ipa: International Phonetic Alphabet.
   - pos: Part of Speech.
-  - meaning: A precise, context-aware Chinese definition that explains *how* the word is used here.
+  - meaning: A precise Chinese definition explaining its nuance *in this specific context*.
   
-  ${existingList ? `Avoid these words: ${existingList}` : ''}
+  ${existingList ? `Exclude these words: ${existingList}` : ''}
 
-  Text snippet: ${text.substring(0, 20000)}...`;
+  Text snippet: ${text.substring(0, 25000)}...`;
 
   const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: vocabSchema,
-      temperature: 0.8,
+      temperature: 0.85, 
     }
   });
 
@@ -304,9 +283,9 @@ export const generateReaderContent = async (text: string, focusChapter?: string)
   3. Provide a 'translation' in Chinese (if original is English) or English (if original is Chinese).
   
   **TRANSLATION QUALITY REQUIREMENT:**
-  - The translation must be **EXTREMELY PRECISE and ACADEMIC**. 
-  - It should strictly reflect the author's tone, nuance, and terminology.
-  - Do NOT use generic or machine-like translation. Use literary Chinese (信达雅).
+  - **SIMPLE & CLEAR**: Use plain, easy-to-understand language (通俗易懂). 
+  - **Natural Flow**: Translate the *meaning* naturally, do NOT translate word-for-word. 
+  - Avoid overly academic or obscure words unless necessary. Make it feel like a fluent storyteller is explaining it.
 
   4. Ensure the output is a JSON array of objects.
   

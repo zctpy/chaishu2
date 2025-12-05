@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
 import { 
-  BookOpen, Network, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, ArrowRight, Headphones, PlayCircle, Share2, Download, Printer, Loader2, Sparkles, ChevronDown, PenTool, CheckCircle, AlignLeft, Copy, Facebook, Twitter
+  BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, ArrowRight, Headphones, PlayCircle, Share2, Download, Printer, Loader2, Sparkles, ChevronDown, PenTool, CheckCircle, AlignLeft, Copy, Facebook, Twitter, Check
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AnalysisResult, TabView, ReviewStyle } from '../types';
-import MermaidChart from './MermaidChart';
 import ReaderView from './ReaderView';
 import SocialShareModal, { ShareData } from './SocialShareModal';
 import ExportReportModal from './ExportReportModal';
@@ -25,8 +24,6 @@ interface DashboardProps {
   isRefreshingVocab: boolean;
   onRefreshQuiz: (existing: any[]) => void;
   isRefreshingQuiz: boolean;
-  onGenerateDetailedMindMap: () => void;
-  isGeneratingMindMap: boolean;
   onGenerateReader: (chapterIndex?: number) => void;
   onLoadMoreReader: () => void;
   isGeneratingReader: boolean;
@@ -39,7 +36,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     onRefreshQuotes, isRefreshingQuotes,
     onRefreshVocab, isRefreshingVocab,
     onRefreshQuiz, isRefreshingQuiz,
-    onGenerateDetailedMindMap, isGeneratingMindMap,
     onGenerateReader, onLoadMoreReader, isGeneratingReader,
     onGenerateReview, isGeneratingReview
 }) => {
@@ -52,6 +48,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [reviewLang, setReviewLang] = useState<'CN' | 'EN'>('CN');
   const [reviewStyle, setReviewStyle] = useState<ReviewStyle>('NIETZSCHE');
   
+  // Review Copy State
+  const [reviewCopied, setReviewCopied] = useState(false);
+
   // Share Modal State
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareData, setShareData] = useState<ShareData | null>(null);
@@ -117,35 +116,26 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const copyToClipboard = (text: string) => {
      navigator.clipboard.writeText(text).then(() => {
-         alert("已复制到剪贴板");
+         // Standard alert removed for specific button feedback logic, but kept for generic calls
      });
   };
 
-  const handleDownloadMindMap = async () => {
-    // Target the inner container wrapper to capture full content regardless of zoom/pan
-    const element = document.getElementById('mermaid-content-wrapper');
-    if (!element || !window.html2canvas) return;
-    
-    const btn = document.getElementById('dl-mm-btn');
-    if(btn) btn.innerText = "生成中...";
+  const handleCopyReview = (text: string) => {
+      navigator.clipboard.writeText(text).then(() => {
+          setReviewCopied(true);
+          setTimeout(() => setReviewCopied(false), 2000);
+      });
+  };
 
-    try {
-        const canvas = await window.html2canvas(element, {
-            scale: 2, // High resolution
-            backgroundColor: '#ffffff',
-            ignoreElements: (element: Element) => element.classList.contains('absolute') // Ignore toolbars if any inside
-        });
-        const image = canvas.toDataURL("image/png");
-        const link = document.createElement('a');
-        link.href = image;
-        link.download = `BookMaster_MindMap_${Date.now()}.png`;
-        link.click();
-    } catch(e) {
-        console.error(e);
-        alert("下载失败，请重试");
-    } finally {
-        if(btn) btn.innerText = "保存脑图图片";
-    }
+  const handleReviewLangChange = (lang: 'CN' | 'EN') => {
+      if (reviewLang === lang) return;
+      setReviewLang(lang);
+      
+      // Automatic regeneration if review exists but language doesn't match
+      if (data.bookReview) {
+          // Trigger regen
+          onGenerateReview(reviewStyle, lang);
+      }
   };
 
   const renderContent = () => {
@@ -225,33 +215,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                 ))}
                 </div>
             )}
-          </div>
-        );
-
-      case TabView.MINDMAP:
-        return (
-          <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white shadow-xl shadow-slate-200/50 overflow-hidden min-h-[600px] flex flex-col animate-slideUp">
-            <div className="p-6 bg-slate-50/50 border-b border-slate-200/50 flex justify-between items-center flex-wrap gap-4">
-               <div>
-                  <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                    <Network className="w-5 h-5 text-emerald-600" /> 知识脉络图
-                  </h3>
-                  <p className="text-sm text-slate-500">可视化全书逻辑结构</p>
-               </div>
-               <div className="flex gap-3">
-                 <button 
-                  id="dl-mm-btn"
-                  onClick={handleDownloadMindMap}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg bg-white border border-slate-200 text-slate-700 hover:text-emerald-600 hover:border-emerald-200 transition-all shadow-sm"
-                 >
-                   <Download className="w-4 h-4" />
-                   保存图片
-                 </button>
-               </div>
-            </div>
-            <div id="mermaid-container-div" className="flex-1 bg-white p-6 overflow-hidden relative">
-                 <MermaidChart chart={data.mindMapMarkdown || "graph LR; A[准备中...]"} />
-            </div>
           </div>
         );
       
@@ -498,17 +461,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                </div>
                
                <div className="flex items-center gap-3 bg-slate-100 p-1.5 rounded-xl">
-                  {/* Language Toggle for Review - Fixed Logic */}
+                  {/* Language Toggle for Review - Updates State and Triggers Regen */}
                   <div className="flex bg-white rounded-lg p-1 shadow-sm">
                       <button 
-                        onClick={() => setReviewLang('CN')} 
+                        onClick={() => handleReviewLangChange('CN')} 
                         className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${reviewLang === 'CN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        disabled={isGeneratingReview}
                       >
                           中
                       </button>
                       <button 
-                        onClick={() => setReviewLang('EN')} 
+                        onClick={() => handleReviewLangChange('EN')} 
                         className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${reviewLang === 'EN' ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:text-slate-600'}`}
+                        disabled={isGeneratingReview}
                       >
                           En
                       </button>
@@ -532,7 +497,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
                   <button
-                    onClick={() => onGenerateReview(reviewStyle, reviewLang)} // Correctly passing reviewLang
+                    onClick={() => onGenerateReview(reviewStyle, reviewLang)} 
                     disabled={isGeneratingReview}
                     className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-lg font-bold shadow-lg shadow-slate-900/10 hover:bg-emerald-600 hover:shadow-emerald-500/30 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                   >
@@ -553,7 +518,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
              {/* Review Content Display */}
              {currentReview ? (
-                 <div className="bg-white p-8 md:p-12 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+                 <div className={`bg-white p-8 md:p-12 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 transition-opacity duration-300 ${isGeneratingReview ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                      
                      {/* Header Metadata */}
                      <div className="mb-10 text-center border-b border-slate-100 pb-8">
@@ -621,26 +586,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                      {/* Action Footer */}
                      <div className="mt-10 pt-6 border-t border-slate-100 flex flex-wrap justify-end gap-4">
                         <button
-                            onClick={() => copyToClipboard(currentReview.contentMarkdown)}
-                            className="flex items-center gap-2 text-slate-600 font-bold hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors border border-slate-200 hover:border-slate-300"
+                            onClick={() => handleCopyReview(currentReview.contentMarkdown)}
+                            className={`flex items-center gap-2 font-bold px-6 py-3 rounded-xl transition-all border shadow-sm ${
+                                reviewCopied 
+                                ? 'bg-emerald-500 text-white border-emerald-500 shadow-emerald-500/20' 
+                                : 'text-slate-600 hover:bg-slate-50 border-slate-200 hover:border-slate-300'
+                            }`}
                         >
-                            <Copy className="w-4 h-4" />
-                            复制书评
+                            {reviewCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            {reviewCopied ? "复制成功" : "复制书评"}
                         </button>
-                        <button 
-                            onClick={() => openShareModal({
-                                type: 'QUOTE', // Use QUOTE type for styling
-                                title: currentReview.titles[0],
-                                author: data.summary?.author,
-                                text: currentReview.oneSentenceSummary, // Share the summary
-                                subText: "深度书评核心观点",
-                                footer: "BookMaster Deep Review"
-                            })}
-                            className="flex items-center gap-2 text-white bg-emerald-600 font-bold hover:bg-emerald-700 px-4 py-2 rounded-lg transition-colors shadow-lg shadow-emerald-500/20"
-                        >
-                            <Share2 className="w-4 h-4" />
-                            生成分享卡片
-                        </button>
+                        {/* Share button removed as per request */}
                      </div>
                  </div>
              ) : (
@@ -720,7 +676,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const tabs = [
     { id: TabView.SUMMARY, label: '全书总结', icon: BookOpen },
     { id: TabView.READER, label: '双语阅读', icon: Headphones }, 
-    { id: TabView.MINDMAP, label: '思维导图', icon: Network },
+    // Mind Map tab removed
     { id: TabView.REVIEW, label: '深度书评', icon: PenTool }, 
     { id: TabView.QUOTES, label: '精选金句', icon: Quote },
     { id: TabView.VOCAB, label: '核心词汇', icon: Languages },

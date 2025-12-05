@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize, RefreshCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, RefreshCcw, Hand, AlertCircle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -14,128 +14,171 @@ interface MermaidChartProps {
 
 const MermaidChart: React.FC<MermaidChartProps> = ({ chart }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  const [isDragging, setIsDragging] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for Pan and Zoom
+  const [zoom, setZoom] = useState(1); // Default to 100% for readability
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const dragStartRef = useRef({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Initialize Mermaid
   useEffect(() => {
     if (window.mermaid) {
-      // Config for a cleaner, more professional look (No Yellows)
-      window.mermaid.initialize({ 
-        startOnLoad: true, 
+      // Config for "Doubao" / XMind style: Tight, compact, organic
+      window.mermaid.initialize({
+        startOnLoad: false, // Important: We call run() manually
         theme: 'base',
         themeVariables: {
-            primaryColor: '#ffffff',        // White nodes
-            primaryTextColor: '#0f172a',    // Slate-900 text
-            primaryBorderColor: '#10b981',  // Emerald-500 border
-            lineColor: '#64748b',           // Slate-500 lines
-            secondaryColor: '#f1f5f9',      // Slate-100 (Secondary nodes)
-            tertiaryColor: '#e2e8f0',       // Slate-200 (Tertiary/Clusters) - Replaced Yellow
-            fontFamily: 'Inter, sans-serif',
-            clusterBkg: '#f8fafc',          // Very light background for clusters
-            clusterBorder: '#cbd5e1',       // Subtle border
+            primaryColor: '#e0f2fe',        // Light Sky Blue (Very light, clean)
+            primaryTextColor: '#0f172a',    // Dark Slate
+            primaryBorderColor: '#0ea5e9',  // Sky 500
+            lineColor: '#cbd5e1',           // Slate-300 lines (subtle)
+            secondaryColor: '#f0f9ff',      
+            tertiaryColor: '#ffffff',       
+            fontFamily: 'Inter, "Noto Sans SC", sans-serif',
+            fontSize: '14px',
+            edgeLabelBackground: '#ffffff',
+            clusterBkg: '#f8fafc',
+            clusterBorder: '#e2e8f0',
         },
         flowchart: {
-            curve: 'monotoneX', // Cleaner, slightly less curvy lines than 'basis'
-            nodeSpacing: 30,    // Tighter spacing
-            rankSpacing: 40,    // Tighter spacing between levels
-            padding: 10
+            curve: 'basis',      // 'basis' gives the organic, mind-map feel
+            nodeSpacing: 10,     // Tight vertical spacing
+            rankSpacing: 50,     // Moderate horizontal spacing
+            padding: 5,          // Minimal padding inside nodes
+            htmlLabels: true,
         }
       });
     }
   }, []);
 
+  // Render Chart
   useEffect(() => {
     if (containerRef.current && window.mermaid) {
-      // Clean up previous SVG to prevent duplicates/artifacts
-      containerRef.current.innerHTML = ''; 
+      setError(null);
+      containerRef.current.innerHTML = '';
       
       const id = `mermaid-${Date.now()}`;
       const div = document.createElement('div');
       div.id = id;
       div.className = 'mermaid';
-      div.innerHTML = chart;
+      div.textContent = chart; // Use textContent for safety
       containerRef.current.appendChild(div);
 
-      try {
-        window.mermaid.run({
-            nodes: [div]
-        });
-      } catch (e) {
-        console.error("Mermaid rendering error", e);
-        containerRef.current.innerHTML = "<p class='text-red-500 text-sm p-4'>思维导图渲染出错，建议点击“详细版”或刷新。</p>";
-      }
-      // Reset zoom on new chart
-      setZoom(1);
-      setPosition({ x: 0, y: 0 });
+      window.mermaid.run({ nodes: [div] }).then(() => {
+          // Center the chart initially after render
+          setPosition({ x: 0, y: 0 });
+      }).catch((e: any) => {
+          console.error("Mermaid Render Error", e);
+          setError("脑图生成格式有误，AI 偶尔会出错，请尝试重新生成。");
+      });
     }
   }, [chart]);
 
+  // Mouse Event Handlers for Panning
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+    wrapperRef.current?.style.setProperty('cursor', 'grabbing');
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isDragging) {
+      const newX = e.clientX - dragStart.x;
+      const newY = e.clientY - dragStart.y;
+      setPosition({ x: newX, y: newY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    wrapperRef.current?.style.setProperty('cursor', 'grab');
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey || true) { // Always allow wheel zoom for convenience
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        setZoom(prev => Math.min(Math.max(prev + delta, 0.2), 3));
+    }
+  };
+
+  // Toolbar Actions
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.2, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.2, 0.2));
   const handleReset = () => {
       setZoom(1);
       setPosition({ x: 0, y: 0 });
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    // Zoom on wheel
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(prev => Math.max(0.2, Math.min(prev + delta, 5)));
-  };
-
   return (
-    <div className="relative w-full h-[600px] bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden group">
+    <div className="relative w-full h-[650px] bg-white rounded-xl border border-slate-200 overflow-hidden group select-none shadow-inner">
         
-        {/* Toolbar */}
-        <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2 bg-white/90 backdrop-blur shadow-lg rounded-lg p-1.5 border border-slate-200">
-            <button 
-                onClick={handleZoomIn}
-                className="p-2 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded transition-colors"
-                title="放大"
-            >
-                <ZoomIn className="w-5 h-5" />
-            </button>
-            <button 
-                onClick={handleReset}
-                className="p-2 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded transition-colors"
-                title="重置视图"
-            >
-                <RefreshCcw className="w-4 h-4" />
-            </button>
-            <button 
-                onClick={handleZoomOut}
-                className="p-2 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded transition-colors"
-                title="缩小"
-            >
-                <ZoomOut className="w-5 h-5" />
-            </button>
+        {/* Background Grid Pattern */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03]" 
+             style={{ 
+                 backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', 
+                 backgroundSize: '20px 20px' 
+             }}>
         </div>
 
-        {/* Scrollable Area - Mouse Wheel Zoom Attached Here */}
+        {/* Toolbar */}
+        {!error && (
+            <div className="absolute bottom-6 right-6 z-30 flex flex-col gap-2 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] rounded-xl p-2 border border-slate-100">
+                <button onClick={handleZoomIn} className="p-2.5 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-lg transition-colors" title="放大">
+                    <ZoomIn className="w-5 h-5" />
+                </button>
+                <button onClick={handleReset} className="p-2.5 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-lg transition-colors" title="重置视图">
+                    <RefreshCcw className="w-4 h-4" />
+                </button>
+                <button onClick={handleZoomOut} className="p-2.5 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600 rounded-lg transition-colors" title="缩小">
+                    <ZoomOut className="w-5 h-5" />
+                </button>
+            </div>
+        )}
+
+        {/* Viewport */}
         <div 
-            className="w-full h-full overflow-auto flex items-center justify-center p-4 cursor-grab active:cursor-grabbing bg-slate-50/30"
+            ref={wrapperRef}
+            className="w-full h-full cursor-grab overflow-hidden relative flex items-center justify-center"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
             onWheel={handleWheel}
         >
             <div 
                 style={{ 
-                    transform: `scale(${zoom})`, 
-                    transformOrigin: 'center top',
-                    transition: 'transform 0.1s ease-out'
+                    transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
+                    transformOrigin: 'center center',
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out'
                 }}
-                className="min-w-full min-h-full flex items-center justify-center"
+                className="absolute inset-0 flex items-center justify-center pointer-events-none" 
             >
-                <div ref={containerRef} className="w-full text-center" id="mermaid-content-wrapper" />
+                 <div ref={containerRef} id="mermaid-content-wrapper" className="pointer-events-auto" />
             </div>
+            
+            {/* Error Overlay */}
+            {error && (
+                 <div className="absolute inset-0 flex items-center justify-center bg-slate-50 z-40">
+                     <div className="bg-white p-6 rounded-xl shadow-lg border border-red-100 flex flex-col items-center max-w-sm text-center">
+                         <AlertCircle className="w-10 h-10 text-red-500 mb-4" />
+                         <p className="text-slate-800 font-bold mb-2">生成出错</p>
+                         <p className="text-sm text-slate-500">{error}</p>
+                     </div>
+                 </div>
+            )}
         </div>
-        
-        {/* Helper Hint */}
-        <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-100 text-xs text-slate-500 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
-            支持鼠标滚轮缩放 • 拖动查看 • 当前比例 {Math.round(zoom * 100)}%
-        </div>
+
+        {/* Overlay Info */}
+        {!error && (
+            <div className="absolute top-4 left-4 bg-white/80 backdrop-blur px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-500 shadow-sm pointer-events-none">
+                {Math.round(zoom * 100)}% • 拖动平移
+            </div>
+        )}
     </div>
   );
 };

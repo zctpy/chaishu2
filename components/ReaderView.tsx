@@ -1,17 +1,18 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Volume2, Loader2, SkipForward, SkipBack, ArrowDownCircle } from 'lucide-react';
-import { ReaderSegment } from '../types';
+import { ReaderSegment, ChapterSummary } from '../types';
 import { generateSpeech, decodePCM } from '../services/geminiService';
 
 interface ReaderViewProps {
   segments: ReaderSegment[] | undefined;
   isLoading: boolean;
-  onGenerate: () => void;
+  onGenerate: (chapterIndex?: number) => void;
   onLoadMore?: () => void;
+  chapters?: ChapterSummary[];
 }
 
-const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate, onLoadMore }) => {
+const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate, onLoadMore, chapters }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [readLanguage, setReadLanguage] = useState<'original' | 'translation'>('original');
@@ -237,7 +238,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
          <h3 className="text-xl font-bold text-slate-800 mb-2">双语逐段阅读</h3>
          <p className="text-slate-500 mb-6 max-w-md mx-auto">AI 将为您提取核心章节，生成中英对照视图，并提供高品质语音朗读。</p>
          <button 
-           onClick={onGenerate}
+           onClick={() => onGenerate()} 
            className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-500/30"
          >
            开始生成阅读内容

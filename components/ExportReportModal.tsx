@@ -2,7 +2,6 @@
 import React from 'react';
 import { X, FileText, FileCode, FileType } from 'lucide-react';
 import { AnalysisResult } from '../types';
-import MermaidChart from './MermaidChart';
 
 interface ExportReportModalProps {
   isOpen: boolean;
@@ -155,16 +154,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
                     </div>
                 </section>
 
-                {/* 2. Mind Map */}
-                <section className="mb-12 break-inside-avoid">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                        思维导图
-                    </h2>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white p-2">
-                        <MermaidChart chart={data.mindMapMarkdown || 'graph LR; A[No Data]'} />
-                    </div>
-                    <p className="text-center text-xs text-slate-400 mt-2">注：Word 文档中可能无法直接交互，建议使用 HTML 版本查看完整图表。</p>
-                </section>
+                {/* Mind Map Section Removed */}
 
                 {/* 3. Golden Quotes */}
                 <section className="mb-12">

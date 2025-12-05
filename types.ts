@@ -1,5 +1,4 @@
 
-
 export enum AppState {
   UPLOAD = 'UPLOAD',
   PROCESSING = 'PROCESSING',
@@ -8,13 +7,12 @@ export enum AppState {
 
 export enum TabView {
   SUMMARY = 'SUMMARY',
-  MINDMAP = 'MINDMAP',
   QUOTES = 'QUOTES',
   VOCAB = 'VOCAB',
   PRACTICE = 'PRACTICE',
   PLAN = 'PLAN',
   READER = 'READER',
-  REVIEW = 'REVIEW', // New Tab
+  REVIEW = 'REVIEW',
 }
 
 export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO';
@@ -71,11 +69,11 @@ export interface BookReview {
   oneSentenceSummary: string;
   contentMarkdown: string;
   selfCheckList: string[];
+  language?: 'CN' | 'EN';
 }
 
 export interface AnalysisResult {
   summary?: BookSummary;
-  mindMapMarkdown?: string;
   quotes?: Quote[];
   vocab?: VocabItem[];
   quiz?: QuizQuestion[];
