@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages } from 'lucide-react';
 import { PodcastResult, ComplexityLevel, Theme } from '../types';
+import { decodePCM } from '../services/geminiService';
 
 interface PodcastViewProps {
   podcast?: PodcastResult;
@@ -10,6 +11,55 @@ interface PodcastViewProps {
   theme: Theme;
 }
 
+// Helper to convert raw PCM to WAV for download
+const createWavBlob = (audioBuffer: ArrayBuffer, sampleRate: number = 24000): Blob => {
+  const numOfChannels = 1;
+  const length = audioBuffer.byteLength;
+  const buffer = new ArrayBuffer(44 + length);
+  const view = new DataView(buffer);
+  
+  // Helper to write string
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  // RIFF identifier
+  writeString(view, 0, 'RIFF');
+  // file length
+  view.setUint32(4, 36 + length, true);
+  // RIFF type
+  writeString(view, 8, 'WAVE');
+  // format chunk identifier
+  writeString(view, 12, 'fmt ');
+  // format chunk length
+  view.setUint32(16, 16, true);
+  // sample format (raw)
+  view.setUint16(20, 1, true);
+  // channel count
+  view.setUint16(22, numOfChannels, true);
+  // sample rate
+  view.setUint32(24, sampleRate, true);
+  // byte rate (sample rate * block align)
+  view.setUint32(28, sampleRate * 2, true);
+  // block align (channel count * bytes per sample)
+  view.setUint16(32, 2, true);
+  // bits per sample
+  view.setUint16(34, 16, true);
+  // data chunk identifier
+  writeString(view, 36, 'data');
+  // data chunk length
+  view.setUint32(40, length, true);
+  
+  // write the PCM samples
+  const pcmData = new Uint8Array(audioBuffer);
+  const dataView = new Uint8Array(buffer, 44);
+  dataView.set(pcmData);
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
 const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexity, theme }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -17,6 +67,14 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+
+  // Stop audio on unmount
+  useEffect(() => {
+    return () => {
+      if (sourceRef.current) sourceRef.current.stop();
+      if (audioContextRef.current) audioContextRef.current.close();
+    };
+  }, []);
 
   const handleGenerate = async () => {
       setLoading(true);
@@ -34,11 +92,18 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
     }
 
     try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioContextRef.current = ctx;
+        if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
         
-        // Decode audio data
-        const audioBuffer = await ctx.decodeAudioData(podcast.audioBuffer.slice(0));
+        const ctx = audioContextRef.current;
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+        
+        // Use custom PCM decoder instead of decodeAudioData
+        // because Gemini returns raw PCM, not an encoded file container
+        const audioBuffer = decodePCM(ctx, podcast.audioBuffer.slice(0));
         
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
@@ -48,22 +113,31 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
         sourceRef.current = source;
         setIsPlaying(true);
         
-        source.onended = () => setIsPlaying(false);
+        source.onended = () => {
+             setIsPlaying(false);
+        };
 
     } catch (e) {
         console.error("Audio Play Error", e);
+        alert("播放失败：无法解码音频数据");
         setIsPlaying(false);
     }
   };
 
   const downloadAudio = () => {
       if (!podcast?.audioBuffer) return;
-      const blob = new Blob([podcast.audioBuffer], { type: 'audio/mp3' }); // Rough approx for download
-      const url = URL.createObjectURL(blob);
+      
+      // Convert raw PCM to WAV for download
+      const wavBlob = createWavBlob(podcast.audioBuffer);
+      
+      const url = URL.createObjectURL(wavBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `book_podcast.mp3`;
+      a.download = `book_podcast_${Date.now()}.wav`;
       a.click();
+      
+      // Cleanup
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   if (!podcast) {
@@ -137,7 +211,7 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                              {isPlaying ? "暂停" : "播放音频"}
                          </button>
                          {podcast.audioBuffer && (
-                            <button onClick={downloadAudio} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+                            <button onClick={downloadAudio} className="p-3 bg-white/20 rounded-full hover:bg-white/30 transition-colors" title="下载 WAV">
                                 <Download className="w-5 h-5" />
                             </button>
                          )}
