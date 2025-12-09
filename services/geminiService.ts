@@ -92,9 +92,9 @@ const vocabSchema: Schema = {
     type: Type.OBJECT,
     properties: {
       word: { type: Type.STRING },
-      ipa: { type: Type.STRING },
-      pos: { type: Type.STRING },
-      meaning: { type: Type.STRING }
+      ipa: { type: Type.STRING, description: "Standard IPA pronunciation" },
+      pos: { type: Type.STRING, description: "Part of speech (e.g., n., v., adj.)" },
+      meaning: { type: Type.STRING, description: "Simple, concise Chinese definition" }
     },
     required: ["word", "ipa", "pos", "meaning"]
   }
@@ -221,10 +221,17 @@ export const generateQuotes = async (text: string, existingQuotes: Quote[] = [],
 };
 
 export const generateVocab = async (text: string, existingWords: VocabItem[] = [], complexity: ComplexityLevel = 'NORMAL'): Promise<VocabItem[]> => {
-  const prompt = `Identify 10 vocabulary words.
+  const prompt = `Identify exactly 10 core vocabulary words from the text.
+  
+  Requirements:
+  1. Count: Exactly 10 words.
+  2. IPA: Provide accurate, standard International Phonetic Alphabet (e.g., /wɜːrd/).
+  3. Pos: Provide standard abbreviation (n., v., adj., etc.).
+  4. Meaning: Simple, concise, clear Chinese definition (max 10-15 characters). avoid lengthy explanations.
+  
   ${complexity === 'KIDS'
-    ? "Find 10 simple but important words for a child to learn (e.g., 'Courage', 'Friendship'). Explain them simply."
-    : "Find 10 ADVANCED, RARE (GRE/SAT) words. Explain with academic depth."}
+    ? "Selection Criteria: Choose words suitable for children (e.g., 'Courage', 'Friendship'). Explain them very simply."
+    : "Selection Criteria: Choose core keywords or advanced words."}
   
   Text snippet: ${text.substring(0, 25000)}...`;
 
