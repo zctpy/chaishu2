@@ -6,43 +6,84 @@ import { AppState, AnalysisResult, ReviewStyle, Theme, ComplexityLevel } from '.
 import * as geminiService from './services/geminiService';
 import { Sparkles, BookOpen } from 'lucide-react';
 
+// --- GLOBAL STYLES & ANIMATIONS ---
+const GlobalStyles = () => (
+  <style>{`
+    @keyframes blob {
+      0% { transform: translate(0px, 0px) scale(1); }
+      33% { transform: translate(30px, -50px) scale(1.1); }
+      66% { transform: translate(-20px, 20px) scale(0.9); }
+      100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .animate-blob {
+      animation: blob 7s infinite;
+    }
+    .animation-delay-2000 {
+      animation-delay: 2s;
+    }
+    .animation-delay-4000 {
+      animation-delay: 4s;
+    }
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+    }
+    .glass-sidebar {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-right: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    /* Hide scrollbar for cleaner look in some containers */
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+  `}</style>
+);
+
 // --- THEME DEFINITIONS ---
 const THEMES: Theme[] = [
   { 
     id: 'MODERN_EMERALD', 
-    name: '极简白绿', 
+    name: '清新翠绿', 
     bgClass: 'bg-slate-50', 
-    sidebarClass: 'bg-white border-r border-slate-200', 
-    activeTabClass: 'bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200', 
+    sidebarClass: 'glass-sidebar', 
+    activeTabClass: 'bg-emerald-100/80 text-emerald-700 shadow-sm ring-1 ring-emerald-200/50', 
     textClass: 'text-slate-600', 
     accentColor: 'text-emerald-600', 
-    cardClass: 'bg-white border-slate-200 shadow-sm' 
+    cardClass: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)]' 
   },
   { 
     id: 'DARK_MODE', 
     name: '深邃夜空', 
     bgClass: 'bg-[#0f172a]', 
-    sidebarClass: 'bg-[#1e293b] border-r border-slate-700', 
-    activeTabClass: 'bg-slate-700 text-sky-400 border border-slate-600', 
+    sidebarClass: 'bg-[#1e293b]/90 backdrop-blur-xl border-r border-slate-700/50', 
+    activeTabClass: 'bg-slate-700 text-sky-400 border border-slate-600 shadow-[0_0_15px_rgba(56,189,248,0.1)]', 
     textClass: 'text-slate-300', 
     accentColor: 'text-sky-400', 
-    cardClass: 'bg-[#1e293b] border-slate-700 shadow-xl' 
+    cardClass: 'bg-[#1e293b]/80 backdrop-blur-md border border-slate-700 shadow-xl' 
   },
   { 
     id: 'KIDS_PLAYFUL', 
     name: '童趣彩虹', 
     bgClass: 'bg-[#fffbeb]', 
-    sidebarClass: 'bg-[#fff1f2] border-r border-rose-200', 
-    activeTabClass: 'bg-white text-rose-500 shadow-md scale-105 border border-rose-100', 
+    sidebarClass: 'bg-[#fff1f2]/90 backdrop-blur-xl border-r border-rose-200/50', 
+    activeTabClass: 'bg-white text-rose-500 shadow-md scale-105 border border-rose-100 rounded-full', 
     textClass: 'text-slate-700 font-medium', 
     accentColor: 'text-rose-500', 
-    cardClass: 'bg-white border-orange-200 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem]' 
+    cardClass: 'bg-white/90 border-2 border-orange-100 shadow-[0_8px_30px_rgb(0,0,0,0.05)] rounded-[2rem]' 
   },
   { 
     id: 'ZEN_PAPER', 
     name: '护眼羊皮', 
     bgClass: 'bg-[#f7f5eb]', 
-    sidebarClass: 'bg-[#ebe6d6] border-r border-[#dcd6c3]', 
+    sidebarClass: 'bg-[#ebe6d6]/90 border-r border-[#dcd6c3]', 
     activeTabClass: 'bg-[#fbf9f3] text-[#5c5644] shadow-sm border border-[#dcd6c3]', 
     textClass: 'text-[#474336]', 
     accentColor: 'text-[#8c7b56]', 
@@ -52,62 +93,12 @@ const THEMES: Theme[] = [
     id: 'CYBERPUNK', 
     name: '赛博霓虹', 
     bgClass: 'bg-[#050505]', 
-    sidebarClass: 'bg-[#0a0a0a] border-r border-fuchsia-900', 
+    sidebarClass: 'bg-[#0a0a0a]/90 border-r border-fuchsia-900', 
     activeTabClass: 'bg-fuchsia-900/20 text-fuchsia-400 border border-fuchsia-500/50 shadow-[0_0_15px_rgba(232,121,249,0.3)]', 
     textClass: 'text-slate-300', 
     accentColor: 'text-cyan-400', 
-    cardClass: 'bg-[#111] border-fuchsia-900/30 shadow-2xl' 
+    cardClass: 'bg-[#111]/90 border-fuchsia-900/30 shadow-2xl' 
   },
-  { 
-    id: 'OCEAN_BREEZE', 
-    name: '蔚蓝海风', 
-    bgClass: 'bg-sky-50', 
-    sidebarClass: 'bg-white border-r border-sky-100', 
-    activeTabClass: 'bg-sky-100 text-sky-700 font-bold', 
-    textClass: 'text-slate-600', 
-    accentColor: 'text-sky-600', 
-    cardClass: 'bg-white/80 backdrop-blur border-sky-100 shadow-sky-100/50' 
-  },
-  { 
-    id: 'SUNSET_GLOW', 
-    name: '暮光暖阳', 
-    bgClass: 'bg-gradient-to-br from-orange-50 to-rose-50', 
-    sidebarClass: 'bg-white/90 border-r border-orange-100', 
-    activeTabClass: 'bg-gradient-to-r from-orange-100 to-rose-100 text-rose-700', 
-    textClass: 'text-slate-700', 
-    accentColor: 'text-orange-500', 
-    cardClass: 'bg-white border-orange-100 shadow-orange-100' 
-  },
-  { 
-    id: 'ROYAL_PURPLE', 
-    name: '凝夜紫韵', 
-    bgClass: 'bg-[#f3e8ff]', 
-    sidebarClass: 'bg-[#2e1065] border-r border-[#4c1d95]', 
-    activeTabClass: 'bg-[#581c87] text-purple-100 border-l-4 border-purple-300', 
-    textClass: 'text-slate-700', 
-    accentColor: 'text-[#7e22ce]', 
-    cardClass: 'bg-white border-purple-100 shadow-purple-100' 
-  }, 
-  { 
-    id: 'MINIMAL_GREY', 
-    name: '极致黑白', 
-    bgClass: 'bg-[#eeeeee]', 
-    sidebarClass: 'bg-black border-r border-black', 
-    activeTabClass: 'bg-white text-black font-bold', 
-    textClass: 'text-black', 
-    accentColor: 'text-black', 
-    cardClass: 'bg-white border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]' 
-  },
-  { 
-    id: 'FOREST_DEEP', 
-    name: '北欧森系', 
-    bgClass: 'bg-[#ecfdf5]', 
-    sidebarClass: 'bg-[#064e3b] border-r border-[#065f46]', 
-    activeTabClass: 'bg-[#047857] text-emerald-50 shadow-inner', 
-    textClass: 'text-emerald-900', 
-    accentColor: 'text-[#047857]', 
-    cardClass: 'bg-white border-emerald-100 shadow-emerald-100' 
-  }
 ];
 
 const App: React.FC = () => {
@@ -194,7 +185,6 @@ const App: React.FC = () => {
   };
 
   // --- Handlers for Refreshes ---
-
   const handleRefreshQuotes = async (existing: any[]) => {
     if (!bookText) return;
     setRefreshingQuotes(true);
@@ -283,11 +273,9 @@ const App: React.FC = () => {
     } catch(e) { alert("生成书评失败"); } finally { setGeneratingReview(false); }
   };
 
-  // --- NEW Podcast Handler ---
   const handleGeneratePodcast = async () => {
       if (!bookText) return;
       try {
-          // This one is handled inside Dashboard usually, but we can pass a callback
           const result = await geminiService.generatePodcast(bookText, complexity);
           setAnalysisData(prev => ({ ...prev, podcast: result }));
       } catch (e) {
@@ -297,39 +285,52 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-500 ${currentTheme.bgClass} ${currentTheme.textClass}`}>
+    <div className={`min-h-screen flex flex-col font-sans transition-colors duration-500 ${currentTheme.bgClass} ${currentTheme.textClass} relative overflow-hidden`}>
+      <GlobalStyles />
       
-      {/* Background Ambience based on Theme */}
+      {/* Dynamic Background */}
       <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
-        {currentThemeId === 'DARK_MODE' && <div className="absolute inset-0 bg-slate-900"></div>}
-        {currentThemeId === 'CYBERPUNK' && <div className="absolute inset-0 bg-[#050505] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>}
-        {currentThemeId === 'MINIMAL_GREY' && <div className="absolute inset-0 bg-[#eeeeee] opacity-50 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>}
-        
-        {/* Default / Gentle Gradients */}
-        <div className={`absolute top-0 right-0 w-[800px] h-[800px] rounded-full blur-3xl opacity-30 mix-blend-multiply transition-colors duration-1000 ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-yellow-300' : 'bg-emerald-100'}`}></div>
+        {currentThemeId === 'DARK_MODE' ? (
+             <div className="absolute inset-0 bg-slate-900">
+                <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+                <div className="absolute top-0 -right-4 w-72 h-72 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+                <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+             </div>
+        ) : (
+             <div className="absolute inset-0 bg-slate-50">
+                {/* Colorful blobs for light mode */}
+                <div className={`absolute top-0 -left-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-yellow-300' : 'bg-purple-300'}`}></div>
+                <div className={`absolute top-0 -right-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000 ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-pink-300' : 'bg-yellow-300'}`}></div>
+                <div className={`absolute -bottom-32 left-20 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000 ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-blue-300' : 'bg-pink-300'}`}></div>
+             </div>
+        )}
       </div>
 
-      {/* Header - Only visible on Upload screen, Dashboard has sidebar */}
+      {/* Header - Only visible on Upload screen */}
       {appState !== AppState.DASHBOARD && (
-        <header className="fixed top-0 inset-x-0 z-40 h-16 flex items-center justify-between px-6 bg-white/50 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <BookOpen className={`w-6 h-6 ${currentTheme.accentColor}`} />
-            <span className="font-extrabold text-xl tracking-tight">BookMaster <span className={currentTheme.accentColor}>AI</span></span>
+        <header className="fixed top-0 inset-x-0 z-40 h-20 flex items-center justify-between px-8 bg-white/30 backdrop-blur-md border-b border-white/20">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${currentThemeId === 'DARK_MODE' ? 'bg-white/10 text-white' : 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'}`}>
+                <BookOpen className="w-6 h-6" />
+            </div>
+            <span className={`font-extrabold text-2xl tracking-tight ${currentThemeId === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                BookMaster <span className="text-emerald-500">AI</span>
+            </span>
           </div>
           
           {/* Complexity Toggle on Landing Page */}
-           <div className="flex items-center gap-2 bg-white/80 p-1 rounded-full border border-slate-200 shadow-sm">
+           <div className="flex items-center gap-1 bg-white/40 p-1.5 rounded-full border border-white/50 backdrop-blur-sm shadow-sm">
               <button 
                 onClick={() => setComplexity('NORMAL')}
-                className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${complexity === 'NORMAL' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`px-4 py-2 text-xs font-bold rounded-full transition-all duration-300 ${complexity === 'NORMAL' ? 'bg-slate-800 text-white shadow-md' : 'text-slate-600 hover:bg-white/50'}`}
               >
-                专业版
+                🎓 专业版
               </button>
               <button 
                 onClick={() => setComplexity('KIDS')}
-                className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${complexity === 'KIDS' ? 'bg-yellow-400 text-yellow-900' : 'text-slate-500 hover:text-yellow-600'}`}
+                className={`px-4 py-2 text-xs font-bold rounded-full transition-all duration-300 ${complexity === 'KIDS' ? 'bg-gradient-to-r from-yellow-400 to-orange-400 text-white shadow-md' : 'text-slate-600 hover:bg-white/50'}`}
               >
-                👶 新手/儿童版
+                🧸 儿童版
               </button>
            </div>
         </header>
@@ -338,22 +339,25 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 relative">
         {appState === AppState.UPLOAD && (
-          <div className="pt-16">
+          <div className="pt-20">
              <InputSection onAnalyze={handleAnalyze} isLoading={false} />
           </div>
         )}
 
         {appState === AppState.PROCESSING && (
-           <div className="flex flex-col items-center justify-center h-screen animate-fadeIn">
-             <div className="relative w-24 h-24 mb-8">
+           <div className="flex flex-col items-center justify-center h-screen animate-fadeIn relative z-10">
+             <div className="relative w-32 h-32 mb-10">
                 <div className={`absolute inset-0 border-4 rounded-full opacity-20 ${currentThemeId === 'DARK_MODE' ? 'border-white' : 'border-slate-900'}`}></div>
                 <div className={`absolute inset-0 border-4 border-t-transparent rounded-full animate-spin ${currentThemeId === 'KIDS_PLAYFUL' ? 'border-yellow-500' : 'border-emerald-500'}`}></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <Sparkles className={`w-10 h-10 animate-pulse ${currentThemeId === 'KIDS_PLAYFUL' ? 'text-yellow-500' : 'text-emerald-500'}`} />
+                </div>
              </div>
-             <h2 className={`text-3xl font-extrabold mb-4 ${currentThemeId === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
-                {complexity === 'KIDS' ? "AI 正在读故事书..." : "AI 正在深度阅读"}
+             <h2 className={`text-4xl font-extrabold mb-4 tracking-tight ${currentThemeId === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                {complexity === 'KIDS' ? "AI 正在读故事书..." : "AI 正在深度解析"}
              </h2>
-             <p className="opacity-60 text-center">
-               {complexity === 'KIDS' ? "寻找好玩的图片和简单的道理..." : "构建知识图谱 / 提炼核心金句..."}
+             <p className={`text-lg font-medium opacity-70 text-center max-w-md ${currentThemeId === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-600'}`}>
+               {complexity === 'KIDS' ? "正在寻找好玩的图片和简单的道理..." : "构建知识图谱 • 提炼核心金句 • 生成双语对照"}
              </p>
            </div>
         )}
