@@ -13,9 +13,23 @@ export enum TabView {
   PLAN = 'PLAN',
   READER = 'READER',
   REVIEW = 'REVIEW',
+  PODCAST = 'PODCAST', // New Feature
 }
 
 export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO';
+
+export type ComplexityLevel = 'NORMAL' | 'KIDS';
+
+export interface Theme {
+  id: string;
+  name: string;
+  bgClass: string; // Tailwind classes for background
+  sidebarClass: string;
+  activeTabClass: string;
+  textClass: string;
+  accentColor: string;
+  cardClass: string;
+}
 
 export interface ChapterSummary {
   chapterTitle: string;
@@ -72,6 +86,17 @@ export interface BookReview {
   language?: 'CN' | 'EN';
 }
 
+export interface PodcastScriptLine {
+  speaker: string;
+  text: string;
+}
+
+export interface PodcastResult {
+  title: string;
+  script: PodcastScriptLine[];
+  audioBuffer?: ArrayBuffer;
+}
+
 export interface AnalysisResult {
   summary?: BookSummary;
   quotes?: Quote[];
@@ -80,6 +105,7 @@ export interface AnalysisResult {
   actionPlan?: ActionDay[];
   readerContent?: ReaderSegment[];
   bookReview?: BookReview;
+  podcast?: PodcastResult;
 }
 
 export interface ChatMessage {

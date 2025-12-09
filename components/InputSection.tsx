@@ -168,8 +168,8 @@ const InputSection: React.FC<InputSectionProps> = ({ onAnalyze, isLoading }) => 
             <p className="text-sm text-slate-500">一键生成中英对照，配合真人级 AI 语音朗读，提升语言能力。</p>
          </div>
          <div>
-            <h3 className="font-bold text-slate-800 mb-2">深度交互问答</h3>
-            <p className="text-sm text-slate-500">基于全书内容的 AI 助手，随问随答，像与作者对话一样自然。</p>
+            <h3 className="font-bold text-slate-800 mb-2">深度测验与计划</h3>
+            <p className="text-sm text-slate-500">智能生成章节测验与七天行动计划，助力知识内化与实践。</p>
          </div>
       </div>
     </div>
