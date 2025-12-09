@@ -329,7 +329,7 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
 
 // --- PODCAST GENERATION (New Feature) ---
 
-export const generatePodcast = async (text: string, complexity: ComplexityLevel = 'NORMAL'): Promise<PodcastResult> => {
+export const generatePodcast = async (text: string, complexity: ComplexityLevel = 'NORMAL', language: 'CN' | 'EN' = 'EN'): Promise<PodcastResult> => {
     // 1. Generate Script
     const scriptPrompt = `
     Create a 2-minute podcast script discussing this book.
@@ -337,12 +337,12 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
     - Host: Enthusiastic, asks questions.
     - Expert: Knowledgeable, answers with insights.
     
-    ${complexity === 'KIDS' 
-        ? "Target Audience: Kids. Make it funny, use sound effects descriptions in brackets, talk about the moral of the story." 
-        : "Target Audience: Adults. Deep intellectual discussion."}
+    Target Audience: ${complexity === 'KIDS' ? "Kids" : "Adults"}.
+    Style: ${complexity === 'KIDS' ? "Funny, simple, use sound effects in brackets." : "Intellectual, engaging, deep."}
+    
+    IMPORTANT: The script must be in ${language === 'CN' ? 'CHINESE (Mandarin)' : 'ENGLISH'}.
     
     Output JSON with 'title' and 'script' array.
-    Language: Chinese.
     Text: ${text.substring(0, 30000)}...
     `;
 

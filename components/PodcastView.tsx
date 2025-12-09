@@ -1,11 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Mic, Radio, Loader2, Download } from 'lucide-react';
+import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages } from 'lucide-react';
 import { PodcastResult, ComplexityLevel, Theme } from '../types';
 
 interface PodcastViewProps {
   podcast?: PodcastResult;
-  onGenerate: () => void;
+  onGenerate: (language: 'CN' | 'EN') => void;
   complexity: ComplexityLevel;
   theme: Theme;
 }
@@ -13,13 +13,14 @@ interface PodcastViewProps {
 const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexity, theme }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedLang, setSelectedLang] = useState<'EN' | 'CN'>('EN'); // Default to English
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const handleGenerate = async () => {
       setLoading(true);
-      await onGenerate();
+      await onGenerate(selectedLang);
       setLoading(false);
   };
 
@@ -79,6 +80,29 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                     ? "生成一个好玩的广播剧！会有两个有趣的角色给小朋友讲故事。"
                     : "生成一段关于本书的深度对话播客。由主持人与专家共同探讨核心观点。"}
               </p>
+
+              {/* Language Selector */}
+              <div className="relative inline-flex items-center mb-8">
+                    <div className="absolute left-4 pointer-events-none text-violet-600">
+                        <Languages className="w-5 h-5" />
+                    </div>
+                    <select
+                        value={selectedLang}
+                        onChange={(e) => setSelectedLang(e.target.value as 'CN' | 'EN')}
+                        className={`appearance-none pl-12 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/50 ${
+                            theme.id === 'DARK_MODE'
+                            ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
+                            : 'bg-white text-slate-700 border border-slate-200 hover:border-violet-300 hover:shadow-md'
+                        }`}
+                    >
+                        <option value="EN">英文版 (English)</option>
+                        <option value="CN">中文版 (Chinese)</option>
+                    </select>
+                    <div className="absolute right-4 pointer-events-none text-slate-400">
+                        <ChevronDown className="w-4 h-4" />
+                    </div>
+              </div>
+
               <button 
                 onClick={handleGenerate}
                 disabled={loading}
@@ -101,7 +125,7 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                  </div>
                  <div className="flex-1 text-center md:text-left">
                      <h2 className="text-2xl font-bold mb-2">{podcast.title || "BookMaster Podcast"}</h2>
-                     <p className="opacity-80 mb-6">{podcast.script.length} lines • Multi-speaker AI</p>
+                     <p className="opacity-80 mb-6">{podcast.script.length} lines • Multi-speaker AI • {selectedLang === 'EN' ? 'English' : 'Chinese'}</p>
                      
                      <div className="flex items-center gap-4 justify-center md:justify-start">
                          <button 
@@ -130,7 +154,15 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
 
         {/* Script View */}
         <div className={`${theme.cardClass} p-8 rounded-[2rem] border shadow-sm`}>
-            <h3 className={`text-xl font-bold mb-6 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>Podcast Script</h3>
+            <div className="flex justify-between items-center mb-6">
+                <h3 className={`text-xl font-bold ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>Podcast Script</h3>
+                <button 
+                    onClick={() => { onGenerate(selectedLang) }} 
+                    className="text-xs font-bold text-slate-400 hover:text-emerald-500"
+                >
+                    重新生成
+                </button>
+            </div>
             <div className="space-y-6">
                 {podcast.script.map((line, i) => (
                     <div key={i} className="flex gap-4">

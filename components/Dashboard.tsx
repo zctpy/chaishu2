@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, 
   Sparkles, PenTool, Mic, LayoutGrid, LogOut, ChevronRight, Play, Headphones,
-  Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft
+  Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft, Copy, ChevronDown
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AnalysisResult, TabView, ReviewStyle, Theme, ComplexityLevel } from '../types';
@@ -34,7 +34,7 @@ interface DashboardProps {
   isGeneratingReader: boolean;
   onGenerateReview: (style: ReviewStyle, language: 'CN' | 'EN') => void;
   isGeneratingReview: boolean;
-  onGeneratePodcast: () => void;
+  onGeneratePodcast: (language: 'CN' | 'EN') => void;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
@@ -57,7 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Review Style State
-  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle | null>(null);
+  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('GENTLE');
 
   // Audio playing logic
   const [playingAudio, setPlayingAudio] = useState<string | null>(null); 
@@ -93,6 +93,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const openShareModal = (data: ShareData) => { setShareData(data); setShareModalOpen(true); };
+
+  const handleCopyPlan = () => {
+    if (!data.actionPlan) return;
+    const text = data.actionPlan.map(d => `Day ${d.day}: ${d.focus}\n${d.tasks.map(t => `- ${t}`).join('\n')}`).join('\n\n');
+    navigator.clipboard.writeText(text);
+    alert('7天行动计划已复制到剪贴板');
+  };
 
   // --- Render Helpers ---
 
@@ -282,33 +289,37 @@ const Dashboard: React.FC<DashboardProps> = ({
              <div className={containerClass}>
                  <div className={`${cardBaseClass} min-h-[600px]`}>
                      
-                     {/* Sticky Header with Style Options */}
-                     <div className="mb-10 text-center sticky top-0 bg-white/60 backdrop-blur-md py-6 z-10 -mx-10 px-10 border-b border-white/20">
-                         <h2 className={`text-2xl font-bold mb-6 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                     {/* Header with Style Select Dropdown */}
+                     <div className="mb-10 flex flex-col items-center justify-center sticky top-0 bg-white/60 backdrop-blur-md py-6 z-10 -mx-10 px-10 border-b border-white/20">
+                         <h2 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
                              深度书评生成
                          </h2>
-                         <div className="flex flex-wrap justify-center gap-3">
-                             {reviewStyles.map((style) => (
-                                 <button
-                                    key={style.id}
-                                    onClick={() => {
-                                        setActiveReviewStyle(style.id);
-                                        onGenerateReview(style.id, 'CN');
-                                    }}
-                                    disabled={isGeneratingReview}
-                                    className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all transform hover:scale-105 active:scale-95
-                                        ${activeReviewStyle === style.id
-                                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-200' 
-                                            : theme.id === 'DARK_MODE' 
-                                                ? 'bg-white/5 border border-white/10 text-slate-400 hover:bg-white/10 hover:text-white' 
-                                                : 'bg-white border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50'
-                                        }
-                                        ${isGeneratingReview ? 'opacity-50 cursor-not-allowed' : ''}
-                                    `}
-                                 >
-                                     {style.label}
-                                 </button>
-                             ))}
+                         
+                         <div className="relative inline-flex items-center">
+                             <div className="absolute left-4 pointer-events-none text-emerald-600">
+                                 <Sparkles className="w-4 h-4" />
+                             </div>
+                             <select
+                                value={activeReviewStyle}
+                                onChange={(e) => {
+                                    const style = e.target.value as ReviewStyle;
+                                    setActiveReviewStyle(style);
+                                    onGenerateReview(style, 'CN');
+                                }}
+                                disabled={isGeneratingReview}
+                                className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                                    theme.id === 'DARK_MODE'
+                                    ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
+                                    : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
+                                }`}
+                             >
+                                 {reviewStyles.map(s => (
+                                     <option key={s.id} value={s.id}>{s.label}</option>
+                                 ))}
+                             </select>
+                             <div className="absolute right-4 pointer-events-none text-slate-400">
+                                 <ChevronDown className="w-4 h-4" />
+                             </div>
                          </div>
                      </div>
                      
@@ -326,7 +337,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                  <PenTool className="w-10 h-10 text-slate-400" />
                              </div>
-                             <p className="text-lg font-medium text-slate-400">请选择上方任意一种风格开始生成</p>
+                             <p className="text-lg font-medium text-slate-400">请选择一种风格开始生成</p>
                          </div>
                      )}
 
@@ -458,7 +469,14 @@ const Dashboard: React.FC<DashboardProps> = ({
       case TabView.PLAN:
           return (
               <div className={containerClass}>
-                   <h2 className={headingClass}>7天行动计划</h2>
+                   <div className="flex justify-between items-center mb-8">
+                      <h2 className={headingClass.replace('mb-8', 'mb-0')}>7天行动计划</h2>
+                      {data.actionPlan && (
+                          <button onClick={handleCopyPlan} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                              <Copy className="w-4 h-4" /> 复制计划
+                          </button>
+                      )}
+                   </div>
                    {!data.actionPlan ? (
                        <div className="flex flex-col items-center justify-center p-20 opacity-60">
                           <Loader2 className="w-8 h-8 animate-spin mb-2" />
