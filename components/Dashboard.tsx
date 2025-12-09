@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, 
   Sparkles, PenTool, Mic, LayoutGrid, LogOut, ChevronRight, Play, Headphones,
@@ -67,6 +67,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<{[key:number]: number}>({});
 
+  // Auto-generate Review on first visit
+  useEffect(() => {
+    if (activeTab === TabView.REVIEW && !data.bookReview && !isGeneratingReview) {
+        onGenerateReview('GENTLE', 'CN');
+    }
+  }, [activeTab]);
+
   const playHighQualitySpeech = async (text: string, id: string) => {
     if (playingAudio === id) {
        setPlayingAudio(null);
@@ -99,6 +106,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     const text = data.actionPlan.map(d => `Day ${d.day}: ${d.focus}\n${d.tasks.map(t => `- ${t}`).join('\n')}`).join('\n\n');
     navigator.clipboard.writeText(text);
     alert('7天行动计划已复制到剪贴板');
+  };
+
+  const handleCopyReview = () => {
+    if (!data.bookReview) return;
+    const text = `# ${data.bookReview.titles[0]}\n\n> ${data.bookReview.oneSentenceSummary}\n\n${data.bookReview.contentMarkdown}`;
+    navigator.clipboard.writeText(text);
+    alert('书评内容已复制到剪贴板');
   };
 
   // --- Render Helpers ---
@@ -295,31 +309,48 @@ const Dashboard: React.FC<DashboardProps> = ({
                              深度书评生成
                          </h2>
                          
-                         <div className="relative inline-flex items-center">
-                             <div className="absolute left-4 pointer-events-none text-emerald-600">
-                                 <Sparkles className="w-4 h-4" />
+                         <div className="flex items-center gap-4">
+                             <div className="relative inline-flex items-center">
+                                 <div className="absolute left-4 pointer-events-none text-emerald-600">
+                                     <Sparkles className="w-4 h-4" />
+                                 </div>
+                                 <select
+                                    value={activeReviewStyle}
+                                    onChange={(e) => {
+                                        const style = e.target.value as ReviewStyle;
+                                        setActiveReviewStyle(style);
+                                        onGenerateReview(style, 'CN');
+                                    }}
+                                    disabled={isGeneratingReview}
+                                    className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                                        theme.id === 'DARK_MODE'
+                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
+                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
+                                    }`}
+                                 >
+                                     {reviewStyles.map(s => (
+                                         <option key={s.id} value={s.id}>{s.label}</option>
+                                     ))}
+                                 </select>
+                                 <div className="absolute right-4 pointer-events-none text-slate-400">
+                                     <ChevronDown className="w-4 h-4" />
+                                 </div>
                              </div>
-                             <select
-                                value={activeReviewStyle}
-                                onChange={(e) => {
-                                    const style = e.target.value as ReviewStyle;
-                                    setActiveReviewStyle(style);
-                                    onGenerateReview(style, 'CN');
-                                }}
-                                disabled={isGeneratingReview}
-                                className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
-                                    theme.id === 'DARK_MODE'
-                                    ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
-                                    : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
-                                }`}
-                             >
-                                 {reviewStyles.map(s => (
-                                     <option key={s.id} value={s.id}>{s.label}</option>
-                                 ))}
-                             </select>
-                             <div className="absolute right-4 pointer-events-none text-slate-400">
-                                 <ChevronDown className="w-4 h-4" />
-                             </div>
+
+                             {/* Copy Button */}
+                             {!isGeneratingReview && data.bookReview && (
+                                 <button 
+                                   onClick={handleCopyReview}
+                                   className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
+                                      theme.id === 'DARK_MODE'
+                                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                      : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
+                                   }`}
+                                   title="复制书评内容"
+                                 >
+                                     <Copy className="w-4 h-4" />
+                                 </button>
+                             )}
                          </div>
                      </div>
                      
@@ -337,7 +368,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
                                  <PenTool className="w-10 h-10 text-slate-400" />
                              </div>
-                             <p className="text-lg font-medium text-slate-400">请选择一种风格开始生成</p>
+                             <p className="text-lg font-medium text-slate-400">正在初始化书评...</p>
                          </div>
                      )}
 
