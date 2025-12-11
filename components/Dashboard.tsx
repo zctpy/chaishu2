@@ -4,7 +4,7 @@ import {
   BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, 
   Sparkles, PenTool, Mic, LayoutGrid, LogOut, ChevronRight, Play, Headphones,
   Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft, Copy, ChevronDown,
-  Image as ImageIcon, FileCode, Download
+  Image as ImageIcon, FileCode, Download, PlusCircle
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AnalysisResult, TabView, ReviewStyle, Theme, ComplexityLevel } from '../types';
@@ -870,12 +870,17 @@ const Dashboard: React.FC<DashboardProps> = ({
                        )}
                    </div>
 
+                   {/* NEW: Read Next Book Action Button */}
                    <button 
                       onClick={onBack}
-                      className="w-full flex items-center justify-center gap-2 py-3 text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors border-t border-dashed border-slate-200 mt-2"
+                      className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-95 mt-4 ${
+                          theme.id === 'DARK_MODE' 
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-900/20' 
+                          : 'bg-slate-900 text-white hover:bg-emerald-600 shadow-slate-900/20 hover:shadow-emerald-500/30'
+                      }`}
                    >
-                       <LogOut className="w-3 h-3" />
-                       退出阅读
+                       <PlusCircle className="w-4 h-4" />
+                       读下一本书
                    </button>
                </div>
            </div>
