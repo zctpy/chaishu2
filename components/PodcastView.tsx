@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages } from 'lucide-react';
+import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages, RefreshCw } from 'lucide-react';
 import { PodcastResult, ComplexityLevel, Theme } from '../types';
 import { decodePCM } from '../services/geminiService';
 
@@ -78,8 +78,13 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
 
   const handleGenerate = async () => {
       setLoading(true);
-      await onGenerate(selectedLang);
-      setLoading(false);
+      try {
+        await onGenerate(selectedLang);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
   };
 
   const playPodcast = async () => {
@@ -228,15 +233,40 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
 
         {/* Script View */}
         <div className={`${theme.cardClass} p-8 rounded-[2rem] border shadow-sm`}>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h3 className={`text-xl font-bold ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>Podcast Script</h3>
-                <button 
-                    onClick={() => { onGenerate(selectedLang) }} 
-                    className="text-xs font-bold text-slate-400 hover:text-emerald-500"
-                >
-                    重新生成
-                </button>
+                
+                <div className="flex items-center gap-3">
+                    {/* Language Switcher for Regeneration */}
+                    <div className="relative inline-flex items-center">
+                        <select
+                            value={selectedLang}
+                            onChange={(e) => setSelectedLang(e.target.value as 'CN' | 'EN')}
+                            className={`appearance-none pl-3 pr-8 py-1.5 rounded-lg font-bold text-xs shadow-sm transition-all cursor-pointer focus:outline-none border ${
+                                theme.id === 'DARK_MODE'
+                                ? 'bg-slate-800 text-white border-slate-700'
+                                : 'bg-white text-slate-700 border-slate-200'
+                            }`}
+                        >
+                            <option value="EN">English</option>
+                            <option value="CN">中文</option>
+                        </select>
+                        <div className="absolute right-2 pointer-events-none text-slate-400">
+                            <ChevronDown className="w-3 h-3" />
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={handleGenerate}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-600 text-xs font-bold hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                        {loading ? '生成中...' : '重新生成'}
+                    </button>
+                </div>
             </div>
+            
             <div className="space-y-6">
                 {podcast.script.map((line, i) => (
                     <div key={i} className="flex gap-4">

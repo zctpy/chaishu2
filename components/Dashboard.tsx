@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, 
   Sparkles, PenTool, Mic, LayoutGrid, LogOut, ChevronRight, Play, Headphones,
-  Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft, Copy, ChevronDown
+  Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft, Copy, ChevronDown,
+  Image as ImageIcon, FileCode, Download
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AnalysisResult, TabView, ReviewStyle, Theme, ComplexityLevel } from '../types';
@@ -12,6 +13,13 @@ import SocialShareModal, { ShareData } from './SocialShareModal';
 import ExportReportModal from './ExportReportModal';
 import PodcastView from './PodcastView';
 import { generateSpeech, decodePCM } from '../services/geminiService';
+
+// Ensure html2canvas is typed
+declare global {
+  interface Window {
+    html2canvas: any;
+  }
+}
 
 interface DashboardProps {
   data: AnalysisResult;
@@ -58,6 +66,10 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Review Style State
   const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('GENTLE');
+  const [reviewLanguage, setReviewLanguage] = useState<'CN' | 'EN'>('CN');
+
+  // Quiz Language State
+  const [quizLanguage, setQuizLanguage] = useState<'CN' | 'EN'>('CN');
 
   // Audio playing logic
   const [playingAudio, setPlayingAudio] = useState<string | null>(null); 
@@ -66,6 +78,11 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<{[key:number]: number}>({});
+
+  // Refs for Exporting Images
+  const planRef = useRef<HTMLDivElement>(null);
+  const vocabRef = useRef<HTMLDivElement>(null);
+  const reviewRef = useRef<HTMLDivElement>(null);
 
   // Auto-generate Review on first visit
   useEffect(() => {
@@ -101,11 +118,86 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const openShareModal = (data: ShareData) => { setShareData(data); setShareModalOpen(true); };
 
+  // --- Export Helpers ---
+
+  const handleExportImage = async (ref: React.RefObject<HTMLDivElement | null>, filename: string) => {
+    if (!ref.current || !window.html2canvas) return;
+    try {
+        const canvas = await window.html2canvas(ref.current, {
+            scale: 2,
+            backgroundColor: theme.id === 'DARK_MODE' ? '#0f172a' : '#ffffff',
+            useCORS: true,
+            logging: false
+        });
+        const url = canvas.toDataURL("image/png");
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}_${Date.now()}.png`;
+        a.click();
+    } catch (e) {
+        console.error(e);
+        alert("导出图片失败，请重试");
+    }
+  };
+
+  const handleExportPlanHTML = () => {
+      if (!data.actionPlan) return;
+      
+      const rows = data.actionPlan.map(day => `
+        <div class="day-card">
+            <div class="day-badge">Day ${day.day}</div>
+            <div class="content">
+                <h3>${day.focus}</h3>
+                <ul>${day.tasks.map(t => `<li>${t}</li>`).join('')}</ul>
+            </div>
+        </div>
+      `).join('');
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>7天行动计划 - BookMaster</title>
+            <style>
+                body { font-family: sans-serif; padding: 40px; background: #f0f9ff; color: #334155; }
+                .container { max-width: 800px; margin: 0 auto; }
+                h1 { text-align: center; color: #0f172a; margin-bottom: 40px; }
+                .day-card { background: white; border-radius: 16px; padding: 24px; margin-bottom: 20px; display: flex; gap: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+                .day-badge { background: #10b981; color: white; width: 60px; height: 60px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; flex-shrink: 0; }
+                h3 { margin: 0 0 12px 0; color: #0f172a; }
+                ul { margin: 0; padding-left: 20px; }
+                li { margin-bottom: 8px; line-height: 1.5; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📚 7天行动计划</h1>
+                ${rows}
+            </div>
+        </body>
+        </html>
+      `;
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `action_plan_${Date.now()}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+  };
+
   const handleCopyPlan = () => {
     if (!data.actionPlan) return;
     const text = data.actionPlan.map(d => `Day ${d.day}: ${d.focus}\n${d.tasks.map(t => `- ${t}`).join('\n')}`).join('\n\n');
     navigator.clipboard.writeText(text);
     alert('7天行动计划已复制到剪贴板');
+  };
+
+  const handleCopyVocab = () => {
+    if (!data.vocab) return;
+    const text = data.vocab.map(v => `${v.word} [${v.ipa}] (${v.pos}): ${v.meaning}`).join('\n');
+    navigator.clipboard.writeText(text);
+    alert('核心词汇已复制到剪贴板');
   };
 
   const handleCopyReview = () => {
@@ -239,11 +331,23 @@ const Dashboard: React.FC<DashboardProps> = ({
       case TabView.VOCAB:
           return (
               <div className={containerClass + " space-y-6"}>
-                   <div className="flex justify-between items-center mb-6">
+                   <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                       <h2 className={headingClass.replace('mb-8', 'mb-0')}>核心词汇</h2>
-                      <button onClick={() => onRefreshVocab(data.vocab || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
-                          <RefreshCw className={`w-4 h-4 ${isRefreshingVocab?'animate-spin':''}`} /> 换一组
-                      </button>
+                      <div className="flex items-center gap-3">
+                          {data.vocab && (
+                              <>
+                                <button onClick={handleCopyVocab} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="复制列表">
+                                    <Copy className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleExportImage(vocabRef, 'vocabulary')} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="导出图片">
+                                    <ImageIcon className="w-4 h-4" />
+                                </button>
+                              </>
+                          )}
+                          <button onClick={() => onRefreshVocab(data.vocab || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                              <RefreshCw className={`w-4 h-4 ${isRefreshingVocab?'animate-spin':''}`} /> 换一组
+                          </button>
+                      </div>
                   </div>
                   
                   {!data.vocab ? (
@@ -252,38 +356,42 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <p>正在分析词汇...</p>
                       </div>
                   ) : (
-                      <div className={`rounded-[2rem] overflow-hidden border shadow-sm ${theme.id === 'DARK_MODE' ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-slate-100'}`}>
-                          <div className="overflow-x-auto">
-                              <table className="w-full text-left border-collapse">
-                                  <thead>
-                                      <tr className={`border-b text-sm uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'bg-slate-800/50 border-slate-700 text-slate-400' : 'bg-slate-50 border-slate-100 text-slate-500'}`}>
-                                          <th className="p-6 font-bold whitespace-nowrap pl-8">单词</th>
-                                          <th className="p-6 font-bold whitespace-nowrap">音标</th>
-                                          <th className="p-6 font-bold whitespace-nowrap">词性</th>
-                                          <th className="p-6 font-bold w-1/3 min-w-[200px]">释义</th>
-                                          <th className="p-6 font-bold text-center whitespace-nowrap pr-8">朗读</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody>
-                                      {data.vocab.map((v, i) => (
-                                          <tr key={i} className={`border-b last:border-0 transition-colors ${theme.id === 'DARK_MODE' ? 'border-slate-700 hover:bg-slate-800/50' : 'border-slate-50 hover:bg-emerald-50/30'}`}>
-                                              <td className={`p-6 pl-8 font-bold text-lg ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{v.word}</td>
-                                              <td className="p-6 font-mono text-slate-500 text-sm bg-slate-50/50 rounded-lg mx-2">{v.ipa}</td>
-                                              <td className={`p-6 text-sm font-bold uppercase ${theme.accentColor}`}>{v.pos}</td>
-                                              <td className={`p-6 ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>{v.meaning}</td>
-                                              <td className="p-6 text-center pr-8">
-                                                  <button 
+                      <div ref={vocabRef} className={`rounded-[2rem] overflow-hidden border shadow-sm p-2 ${theme.id === 'DARK_MODE' ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-slate-100'}`}>
+                           {/* Improved Vocab Layout using Flex Row Cards */}
+                           <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-700">
+                               {data.vocab.map((v, i) => (
+                                   <div key={i} className={`p-6 flex flex-col md:flex-row items-start md:items-center gap-6 transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}>
+                                       
+                                       {/* Word & IPA */}
+                                       <div className="md:w-1/4 shrink-0">
+                                            <div className="flex items-center gap-3 mb-1">
+                                                <span className={`text-2xl font-black tracking-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                                                    {v.word}
+                                                </span>
+                                                <button 
                                                     onClick={() => playHighQualitySpeech(v.word, `v-${i}`)} 
-                                                    className={`p-2.5 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-400' : 'hover:bg-emerald-100 text-slate-400'} hover:text-emerald-600`}
-                                                  >
-                                                      {playingAudio === `v-${i}` ? <span className="animate-spin">⏳</span> : <Volume2 className="w-5 h-5" />}
-                                                  </button>
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                              </table>
-                          </div>
+                                                    className={`p-1.5 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-600'}`}
+                                                >
+                                                    {playingAudio === `v-${i}` ? <span className="animate-spin text-xs">⏳</span> : <Volume2 className="w-4 h-4" />}
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
+                                                <span>{v.ipa}</span>
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
+                                                    {v.pos}
+                                                </span>
+                                            </div>
+                                       </div>
+                                       
+                                       {/* Meaning */}
+                                       <div className="flex-1">
+                                            <p className={`text-lg leading-relaxed ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>
+                                                {v.meaning}
+                                            </p>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
                       </div>
                   )}
               </div>
@@ -302,14 +410,14 @@ const Dashboard: React.FC<DashboardProps> = ({
           return (
              <div className={containerClass}>
                  <div className={`${cardBaseClass} min-h-[600px]`}>
-                     
-                     {/* Header with Style Select Dropdown */}
+                     {/* Header with Controls ... (Same as before) */}
                      <div className="mb-10 flex flex-col items-center justify-center sticky top-0 bg-white/60 backdrop-blur-md py-6 z-10 -mx-10 px-10 border-b border-white/20">
                          <h2 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
                              深度书评生成
                          </h2>
                          
-                         <div className="flex items-center gap-4">
+                         <div className="flex flex-wrap items-center justify-center gap-3">
+                             {/* Style Selector */}
                              <div className="relative inline-flex items-center">
                                  <div className="absolute left-4 pointer-events-none text-emerald-600">
                                      <Sparkles className="w-4 h-4" />
@@ -319,7 +427,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     onChange={(e) => {
                                         const style = e.target.value as ReviewStyle;
                                         setActiveReviewStyle(style);
-                                        onGenerateReview(style, 'CN');
+                                        onGenerateReview(style, reviewLanguage);
                                     }}
                                     disabled={isGeneratingReview}
                                     className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
@@ -337,19 +445,59 @@ const Dashboard: React.FC<DashboardProps> = ({
                                  </div>
                              </div>
 
-                             {/* Copy Button */}
-                             {!isGeneratingReview && data.bookReview && (
-                                 <button 
-                                   onClick={handleCopyReview}
-                                   className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
-                                      theme.id === 'DARK_MODE'
-                                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                      : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
-                                   }`}
-                                   title="复制书评内容"
+                             {/* Language Selector */}
+                             <div className="relative inline-flex items-center">
+                                 <div className="absolute left-4 pointer-events-none text-blue-600">
+                                     <Languages className="w-4 h-4" />
+                                 </div>
+                                 <select
+                                    value={reviewLanguage}
+                                    onChange={(e) => {
+                                        const lang = e.target.value as 'CN' | 'EN';
+                                        setReviewLanguage(lang);
+                                        onGenerateReview(activeReviewStyle, lang);
+                                    }}
+                                    disabled={isGeneratingReview}
+                                    className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
+                                        theme.id === 'DARK_MODE'
+                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
+                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:shadow-md'
+                                    }`}
                                  >
-                                     <Copy className="w-4 h-4" />
-                                 </button>
+                                     <option value="CN">中文 (Chinese)</option>
+                                     <option value="EN">English</option>
+                                 </select>
+                                 <div className="absolute right-4 pointer-events-none text-slate-400">
+                                     <ChevronDown className="w-4 h-4" />
+                                 </div>
+                             </div>
+
+                             {/* Action Buttons */}
+                             {!isGeneratingReview && data.bookReview && (
+                                 <div className="flex gap-2">
+                                     <button 
+                                       onClick={handleCopyReview}
+                                       className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
+                                          theme.id === 'DARK_MODE'
+                                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                          : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
+                                       }`}
+                                       title="复制书评内容"
+                                     >
+                                         <Copy className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                       onClick={() => handleExportImage(reviewRef, 'book_review')}
+                                       className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
+                                          theme.id === 'DARK_MODE'
+                                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                          : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
+                                       }`}
+                                       title="导出书评图片"
+                                     >
+                                         <ImageIcon className="w-4 h-4" />
+                                     </button>
+                                 </div>
                              )}
                          </div>
                      </div>
@@ -374,7 +522,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                      {/* Content State */}
                      {!isGeneratingReview && data.bookReview && (
-                         <div className="animate-fadeIn max-w-3xl mx-auto">
+                         <div ref={reviewRef} className="animate-fadeIn max-w-3xl mx-auto p-4 bg-transparent">
                              <div className="mb-12 text-center">
                                  <h1 className={`text-3xl md:text-5xl font-black mb-10 font-serif leading-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>
                                      {data.bookReview.titles[0]}
@@ -398,21 +546,24 @@ const Dashboard: React.FC<DashboardProps> = ({
                                  <ReactMarkdown>{data.bookReview.contentMarkdown}</ReactMarkdown>
                              </article>
 
-                             <div className={`p-8 rounded-3xl border ${theme.id === 'DARK_MODE' ? 'bg-emerald-900/10 border-emerald-800/30' : 'bg-emerald-50 border-emerald-100'}`}>
-                                 <h4 className={`font-bold text-lg mb-6 flex items-center gap-2 ${theme.id === 'DARK_MODE' ? 'text-emerald-400' : 'text-emerald-800'}`}>
-                                     <CheckCircle2 className="w-6 h-6"/> 读后自检清单
-                                 </h4>
-                                 <ul className="grid gap-4 sm:grid-cols-2">
-                                     {data.bookReview.selfCheckList.map((item, i) => (
-                                         <li key={i} className="flex items-start gap-3 bg-white/50 p-3 rounded-xl border border-white/50">
-                                             <div className="mt-1.5 w-5 h-5 rounded-full border-2 border-emerald-400/30 flex items-center justify-center shrink-0 bg-white">
-                                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                                             </div>
-                                             <span className={`text-base font-medium ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>{item}</span>
-                                         </li>
-                                     ))}
-                                 </ul>
-                             </div>
+                             {/* Explicit Check for Self Checklist */}
+                             {data.bookReview.selfCheckList && data.bookReview.selfCheckList.length > 0 && (
+                                 <div className={`p-8 rounded-3xl border ${theme.id === 'DARK_MODE' ? 'bg-emerald-900/10 border-emerald-800/30' : 'bg-emerald-50 border-emerald-100'}`}>
+                                     <h4 className={`font-bold text-lg mb-6 flex items-center gap-2 ${theme.id === 'DARK_MODE' ? 'text-emerald-400' : 'text-emerald-800'}`}>
+                                         <CheckCircle2 className="w-6 h-6"/> 读后自检清单
+                                     </h4>
+                                     <ul className="grid gap-4 sm:grid-cols-2">
+                                         {data.bookReview.selfCheckList.map((item, i) => (
+                                             <li key={i} className="flex items-start gap-3 bg-white/50 p-3 rounded-xl border border-white/50">
+                                                 <div className="mt-1.5 w-5 h-5 rounded-full border-2 border-emerald-400/30 flex items-center justify-center shrink-0 bg-white">
+                                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                                                 </div>
+                                                 <span className={`text-base font-medium ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>{item}</span>
+                                             </li>
+                                         ))}
+                                     </ul>
+                                 </div>
+                             )}
                          </div>
                      )}
                  </div>
@@ -424,9 +575,33 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className={containerClass + " space-y-6"}>
                   <div className="flex justify-between items-center mb-6">
                       <h2 className={headingClass.replace('mb-8', 'mb-0')}>深度测验</h2>
-                      <button onClick={() => onRefreshQuiz(data.quiz || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
-                          <RefreshCw className={`w-4 h-4 ${isRefreshingQuiz?'animate-spin':''}`} /> 换一组
-                      </button>
+                      <div className="flex items-center gap-3">
+                          {/* Quiz Language Selector */}
+                          <div className="relative inline-flex items-center">
+                                <div className="absolute left-3 pointer-events-none text-emerald-600">
+                                    <Languages className="w-4 h-4" />
+                                </div>
+                                <select
+                                    value={quizLanguage}
+                                    onChange={(e) => setQuizLanguage(e.target.value as 'CN' | 'EN')}
+                                    className={`appearance-none pl-9 pr-8 py-2 rounded-full font-bold text-xs shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                                        theme.id === 'DARK_MODE'
+                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
+                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
+                                    }`}
+                                >
+                                    <option value="CN">全中文模式</option>
+                                    <option value="EN">English Mode</option>
+                                </select>
+                                <div className="absolute right-3 pointer-events-none text-slate-400">
+                                    <ChevronDown className="w-3 h-3" />
+                                </div>
+                          </div>
+                          
+                          <button onClick={() => onRefreshQuiz(data.quiz || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                              <RefreshCw className={`w-4 h-4 ${isRefreshingQuiz?'animate-spin':''}`} /> 换一组
+                          </button>
+                      </div>
                   </div>
                   {!data.quiz ? (
                        <div className="flex flex-col items-center justify-center p-20 opacity-60">
@@ -438,19 +613,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                           {data.quiz.map((q, qIdx) => {
                               const isAnswered = selectedAnswers[qIdx] !== undefined;
                               const isCorrect = selectedAnswers[qIdx] === q.correctAnswerIndex;
-                              
+                              const questionText = quizLanguage === 'CN' ? q.questionCn : q.questionEn;
+                              const options = quizLanguage === 'CN' ? q.optionsCn : q.optionsEn;
+                              const explanation = quizLanguage === 'CN' ? q.explanationCn : q.explanationEn;
+
                               return (
                                   <div key={qIdx} className={cardBaseClass}>
                                       <div className="flex items-start gap-5 mb-8">
                                           <span className="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-lg shadow-slate-900/20">{qIdx + 1}</span>
                                           <div>
-                                              <h3 className={`text-xl font-bold mb-2 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{q.questionCn}</h3>
-                                              <p className="text-sm text-slate-500 font-medium">{q.questionEn}</p>
+                                              <h3 className={`text-xl font-bold mb-2 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{questionText}</h3>
                                           </div>
                                       </div>
                                       
                                       <div className="space-y-4">
-                                          {q.optionsCn.map((opt, oIdx) => {
+                                          {options.map((opt, oIdx) => {
                                               let btnClass = `w-full text-left p-5 rounded-2xl border transition-all duration-200 flex justify-between items-center group `;
                                               
                                               if (isAnswered) {
@@ -485,7 +662,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
                                               <div>
                                                   <p className="font-bold mb-2 text-lg">解析</p>
-                                                  <p className="leading-relaxed">{q.explanationCn}</p>
+                                                  <p className="leading-relaxed">{explanation}</p>
                                               </div>
                                           </div>
                                       )}
@@ -500,12 +677,20 @@ const Dashboard: React.FC<DashboardProps> = ({
       case TabView.PLAN:
           return (
               <div className={containerClass}>
-                   <div className="flex justify-between items-center mb-8">
+                   <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                       <h2 className={headingClass.replace('mb-8', 'mb-0')}>7天行动计划</h2>
                       {data.actionPlan && (
-                          <button onClick={handleCopyPlan} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
-                              <Copy className="w-4 h-4" /> 复制计划
-                          </button>
+                          <div className="flex items-center gap-2">
+                               <button onClick={handleCopyPlan} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                                   <Copy className="w-4 h-4" /> 复制文本
+                               </button>
+                               <button onClick={() => handleExportImage(planRef, 'action_plan')} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                                   <ImageIcon className="w-4 h-4" /> 导出图片
+                               </button>
+                               <button onClick={handleExportPlanHTML} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                                   <FileCode className="w-4 h-4" /> 导出网页
+                               </button>
+                          </div>
                       )}
                    </div>
                    {!data.actionPlan ? (
@@ -514,7 +699,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                           <p>正在规划行动方案...</p>
                       </div>
                    ) : (
-                       <div className={`${cardBaseClass} p-8 md:p-12 relative`}>
+                       <div ref={planRef} className={`${cardBaseClass} p-8 md:p-12 relative`}>
                             {/* Vertical Line */}
                             <div className="absolute left-10 md:left-14 top-12 bottom-12 w-0.5 bg-slate-200"></div>
 

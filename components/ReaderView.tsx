@@ -22,7 +22,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const segmentRefs = useRef<(HTMLDivElement | null)[]>([]);
   
-  // New refs for Pause/Resume logic
+  // Audio state refs
   const audioBufferRef = useRef<AudioBuffer | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
@@ -61,8 +61,8 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   const stopAudio = (resetProgress: boolean = false) => {
     if (currentSourceRef.current) {
       try {
+        currentSourceRef.current.onended = null; // Important: Clear onended to prevent triggering next segment logic
         currentSourceRef.current.stop();
-        currentSourceRef.current.onended = null; // Prevent triggering onEnded logic
       } catch (e) {
         // ignore already stopped errors
       }
@@ -77,7 +77,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
 
   const playAudioBuffer = async (buffer: AudioBuffer, offset: number) => {
       const ctx = await initAudioContext();
-      stopAudio(false); // Stop running source, but keep buffer/progress
+      stopAudio(false); 
 
       const source = ctx.createBufferSource();
       source.buffer = buffer;
@@ -87,18 +87,17 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
       startTimeRef.current = ctx.currentTime - offset;
 
       source.onended = () => {
-        // Only proceed if not manually paused and still playing
-        if (!isManuallyPausedRef.current && isPlaying) {
+        // Only trigger next segment if we are NOT manually paused
+        // and check if isManuallyPausedRef is false
+        if (!isManuallyPausedRef.current) {
              if (segments && currentIndex < segments.length - 1) {
-                // Next segment
                 setCurrentIndex(prev => prev + 1);
-                pausedTimeRef.current = 0; // Reset for next
-                audioBufferRef.current = null; // Clear buffer for next
+                // Trigger next play via effect or directly
+                // We rely on effect on currentIndex to trigger new play if isPlaying is true
              } else {
-                // End of list
                 setIsPlaying(false);
                 setCurrentIndex(0);
-                pausedTimeRef.current = 0;
+                stopAudio(true);
              }
         }
       };
@@ -115,10 +114,9 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     setIsAudioLoading(true);
 
     try {
-        // Init context first to ensure user gesture is captured if this was triggered by click
         await initAudioContext();
 
-        // If we have a cached buffer and we are resuming (offset > 0) or just replaying the same index
+        // Resume from cached buffer
         if (audioBufferRef.current && offset > 0) {
             await playAudioBuffer(audioBufferRef.current, offset);
             setIsAudioLoading(false);
@@ -129,7 +127,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         const textToSpeak = lang === 'original' ? segments[index].original : segments[index].translation;
         
         if (!textToSpeak || !textToSpeak.trim()) {
-            console.warn("Skipping empty text segment", index);
+            // Skip empty
             if (currentIndex < segments.length - 1) {
                 setCurrentIndex(prev => prev + 1);
             } else {
@@ -145,9 +143,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         const ctx = await initAudioContext();
         const audioBuffer = decodePCM(ctx, arrayBuffer);
         
-        // Cache it
         audioBufferRef.current = audioBuffer;
-        
         await playAudioBuffer(audioBuffer, offset);
 
     } catch (e) {
@@ -161,17 +157,17 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   // Main Play/Pause Toggle
   const togglePlay = async () => {
     if (isPlaying) {
-      // PAUSE Logic
+      // PAUSE
       isManuallyPausedRef.current = true;
       const ctx = audioContextRef.current;
       if (ctx) {
-          // Calculate where we are
-          pausedTimeRef.current = ctx.currentTime - startTimeRef.current;
+          // Store elapsed time
+          pausedTimeRef.current = Math.max(0, ctx.currentTime - startTimeRef.current);
       }
-      stopAudio(false); // Stop sound, keep progress
+      stopAudio(false);
       setIsPlaying(false);
     } else {
-      // RESUME Logic
+      // RESUME
       isManuallyPausedRef.current = false;
       setIsPlaying(true);
       await playSegmentAudio(currentIndex, pausedTimeRef.current);
@@ -179,21 +175,29 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   };
 
   const handleSegmentClick = async (index: number) => {
-    // Reset everything for new segment
-    stopAudio(true); 
+    stopAudio(true); // Stop and reset progress
     isManuallyPausedRef.current = false;
     setCurrentIndex(index);
-    setIsPlaying(true); // Auto play on click
-    
-    // Reset buffer since we changed segment
-    audioBufferRef.current = null; 
-    pausedTimeRef.current = 0;
+    setIsPlaying(true);
+    // Note: The useEffect on currentIndex will handle playback trigger
   };
+
+  // Effect to trigger audio when index changes AND we are in playing state
+  useEffect(() => {
+    if (isPlaying && !isAudioLoading) {
+        // Reset paused time for new segment
+        pausedTimeRef.current = 0;
+        audioBufferRef.current = null;
+        playSegmentAudio(currentIndex, 0);
+    }
+  }, [currentIndex]); 
+  // NOTE: do NOT add isPlaying to deps, or it will loop. 
+  // We only want to react to index changes if we are already playing.
+  // togglePlay handles the resume state.
 
   const handleLanguageSwitch = (newLang: 'original' | 'translation') => {
     if (readLanguage === newLang) return;
 
-    // Calculate current offset based on playback state
     let offset = 0;
     if (isPlaying && audioContextRef.current) {
         offset = audioContextRef.current.currentTime - startTimeRef.current;
@@ -201,35 +205,16 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         offset = pausedTimeRef.current;
     }
 
-    // Switch state
     setReadLanguage(newLang);
-
-    // Stop current audio but preserve relative progress logic conceptually
     stopAudio(false);
-    
-    // Nuke the buffer because content changed (language changed)
-    audioBufferRef.current = null;
+    audioBufferRef.current = null; // Clear buffer as content changed
 
     if (isPlaying) {
-        // Resume immediately with new language at same offset
         playSegmentAudio(currentIndex, offset, newLang);
     } else {
-        // Just update the pause pointer so next play uses it
         pausedTimeRef.current = offset;
     }
   };
-
-  // Effect: Watch for index changes to auto-play if we are in "Playing" mode
-  useEffect(() => {
-    if (isPlaying && !isAudioLoading) {
-        // We need to trigger play, but we must be careful not to trigger it if it was just set by handleSegmentClick which calls it manually
-        // For simplicity, we can just call it here. The manual call in click handler might be redundant or we can rely on this effect.
-        // To avoid double triggers, let's check if source is already playing matching this index? 
-        // Simpler: Just play. playSegmentAudio handles re-generating.
-        playSegmentAudio(currentIndex, 0); 
-    }
-  }, [currentIndex]);
-
 
   if (isLoading && (!segments || segments.length === 0)) {
     return (
