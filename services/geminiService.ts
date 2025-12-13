@@ -94,9 +94,10 @@ const vocabSchema: Schema = {
       word: { type: Type.STRING },
       ipa: { type: Type.STRING, description: "Standard IPA pronunciation" },
       pos: { type: Type.STRING, description: "Part of speech (e.g., n., v., adj.)" },
-      meaning: { type: Type.STRING, description: "Simple, concise Chinese definition" }
+      meaning: { type: Type.STRING, description: "Simple, concise Chinese definition" },
+      sentence: { type: Type.STRING, description: "A short, simple example sentence using this word." }
     },
-    required: ["word", "ipa", "pos", "meaning"]
+    required: ["word", "ipa", "pos", "meaning", "sentence"]
   }
 };
 
@@ -228,9 +229,10 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
   2. IPA: Provide accurate, standard International Phonetic Alphabet (e.g., /wɜːrd/).
   3. Pos: Provide standard abbreviation (n., v., adj., etc.).
   4. Meaning: Simple, concise, clear Chinese definition (max 10-15 characters). avoid lengthy explanations.
+  5. Sentence: A SHORT, SIMPLE example sentence (max 15 words) containing the word.
   
   ${complexity === 'KIDS'
-    ? "Selection Criteria: Choose words suitable for children (e.g., 'Courage', 'Friendship'). Explain them very simply."
+    ? "Selection Criteria: Choose words suitable for children. Explanation AND Sentence must be very simple and fun."
     : "Selection Criteria: Choose core keywords or advanced words."}
   
   Text snippet: ${text.substring(0, 25000)}...`;
@@ -337,8 +339,10 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
     - Host: Enthusiastic, asks questions.
     - Expert: Knowledgeable, answers with insights.
     
-    Target Audience: ${complexity === 'KIDS' ? "Kids" : "Adults"}.
-    Style: ${complexity === 'KIDS' ? "Funny, simple, use sound effects in brackets." : "Intellectual, engaging, deep."}
+    Target Audience: ${complexity === 'KIDS' ? "Young Children (5-8 years old)" : "Adults"}.
+    Style: ${complexity === 'KIDS' 
+        ? "EXTREMELY SIMPLE. Short sentences. Fun and concise. Clear for kids. Use sound effects in brackets." 
+        : "Concise, clear, and easy to follow. Avoid complex jargon. Engaging conversation."}
     
     IMPORTANT: The script must be in ${language === 'CN' ? 'CHINESE (Mandarin)' : 'ENGLISH'}.
     

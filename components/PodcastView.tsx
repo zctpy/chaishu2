@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages, RefreshCw } from 'lucide-react';
+import { Play, Pause, Mic, Radio, Loader2, Download, ChevronDown, Languages, RefreshCw, Copy, Check } from 'lucide-react';
 import { PodcastResult, ComplexityLevel, Theme } from '../types';
 import { decodePCM } from '../services/geminiService';
 
@@ -64,17 +64,32 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedLang, setSelectedLang] = useState<'EN' | 'CN'>('EN'); // Default to English
+  const [copied, setCopied] = useState(false);
+  const [activeLineIndex, setActiveLineIndex] = useState<number>(-1);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const rafRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+  const lineTimestampsRef = useRef<number[]>([]);
+  const scrollRef = useRef<(HTMLDivElement | null)[]>([]);
 
   // Stop audio on unmount
   useEffect(() => {
     return () => {
-      if (sourceRef.current) sourceRef.current.stop();
-      if (audioContextRef.current) audioContextRef.current.close();
+      stopAudio();
     };
   }, []);
+
+  const stopAudio = () => {
+    if (sourceRef.current) sourceRef.current.stop();
+    if (audioContextRef.current) audioContextRef.current.close();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    audioContextRef.current = null;
+    sourceRef.current = null;
+    setIsPlaying(false);
+    setActiveLineIndex(-1);
+  };
 
   const handleGenerate = async () => {
       setLoading(true);
@@ -87,12 +102,30 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
       }
   };
 
+  const handleCopyScript = () => {
+      if (!podcast) return;
+      const text = podcast.script.map(line => `${line.speaker}: ${line.text}`).join('\n\n');
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+  };
+
+  const calculateTimestamps = (totalDuration: number, script: {text: string}[]) => {
+      const totalChars = script.reduce((acc, line) => acc + line.text.length, 0);
+      let accumulatedTime = 0;
+      // Map end times for each line based on character count proportion
+      return script.map(line => {
+          const duration = (line.text.length / totalChars) * totalDuration;
+          accumulatedTime += duration;
+          return accumulatedTime;
+      });
+  };
+
   const playPodcast = async () => {
     if (!podcast?.audioBuffer) return;
 
     if (isPlaying) {
-        sourceRef.current?.stop();
-        setIsPlaying(false);
+        stopAudio();
         return;
     }
 
@@ -106,10 +139,11 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
             await ctx.resume();
         }
         
-        // Use custom PCM decoder instead of decodeAudioData
-        // because Gemini returns raw PCM, not an encoded file container
         const audioBuffer = decodePCM(ctx, podcast.audioBuffer.slice(0));
         
+        // Calculate timestamps based on duration
+        lineTimestampsRef.current = calculateTimestamps(audioBuffer.duration, podcast.script);
+
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
@@ -117,9 +151,37 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
         
         sourceRef.current = source;
         setIsPlaying(true);
+        startTimeRef.current = ctx.currentTime;
+        
+        // Animation loop for highlighting
+        const tick = () => {
+            const elapsed = ctx.currentTime - startTimeRef.current;
+            const index = lineTimestampsRef.current.findIndex(time => time > elapsed);
+            
+            // If index is -1 but we are still playing (elapsed < duration), it usually means we are at the very end
+            const newIndex = index === -1 ? (elapsed < audioBuffer.duration ? lineTimestampsRef.current.length - 1 : -1) : index;
+            
+            if (newIndex !== activeLineIndex) {
+                setActiveLineIndex(newIndex);
+                // Auto scroll to active line
+                if (newIndex !== -1 && scrollRef.current[newIndex]) {
+                    scrollRef.current[newIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
+
+            if (elapsed < audioBuffer.duration) {
+                rafRef.current = requestAnimationFrame(tick);
+            } else {
+                setIsPlaying(false);
+                setActiveLineIndex(-1);
+            }
+        };
+        rafRef.current = requestAnimationFrame(tick);
         
         source.onended = () => {
              setIsPlaying(false);
+             setActiveLineIndex(-1);
+             if (rafRef.current) cancelAnimationFrame(rafRef.current);
         };
 
     } catch (e) {
@@ -199,7 +261,7 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
         {/* Player Card */}
         <div className={`p-8 rounded-[2rem] shadow-xl relative overflow-hidden text-white ${complexity === 'KIDS' ? 'bg-gradient-to-r from-yellow-400 to-orange-500' : 'bg-slate-900'}`}>
             <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                 <div className="w-32 h-32 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 shrink-0">
+                 <div className={`w-32 h-32 rounded-full flex items-center justify-center backdrop-blur-md border border-white/20 shrink-0 ${isPlaying ? 'animate-pulse' : ''} bg-white/10`}>
                      <Radio className="w-12 h-12 text-white" />
                  </div>
                  <div className="flex-1 text-center md:text-left">
@@ -210,7 +272,7 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                          <button 
                            onClick={playPodcast}
                            disabled={!podcast.audioBuffer}
-                           className="flex items-center gap-2 px-8 py-3 bg-white text-slate-900 rounded-full font-bold hover:bg-slate-100 transition-colors"
+                           className="flex items-center gap-2 px-8 py-3 bg-white text-slate-900 rounded-full font-bold hover:bg-slate-100 transition-colors shadow-lg active:scale-95 transform"
                          >
                              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
                              {isPlaying ? "暂停" : "播放音频"}
@@ -226,7 +288,7 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
             {/* Visualizer bars fake */}
             <div className="absolute bottom-0 left-0 right-0 h-24 flex items-end justify-between px-4 opacity-20 pointer-events-none">
                  {[...Array(20)].map((_,i) => (
-                     <div key={i} className="w-3 bg-white rounded-t-sm animate-pulse" style={{ height: `${Math.random() * 100}%`, animationDuration: `${0.5 + Math.random()}s` }}></div>
+                     <div key={i} className={`w-3 bg-white rounded-t-sm ${isPlaying ? 'animate-pulse' : ''}`} style={{ height: `${20 + Math.random() * 80}%`, animationDuration: `${0.5 + Math.random()}s` }}></div>
                  ))}
             </div>
         </div>
@@ -237,6 +299,15 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                 <h3 className={`text-xl font-bold ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>Podcast Script</h3>
                 
                 <div className="flex items-center gap-3">
+                    {/* Copy Button */}
+                    <button 
+                        onClick={handleCopyScript}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${copied ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? '已复制' : '复制脚本'}
+                    </button>
+
                     {/* Language Switcher for Regeneration */}
                     <div className="relative inline-flex items-center">
                         <select
@@ -267,15 +338,25 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                 </div>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                 {podcast.script.map((line, i) => (
-                    <div key={i} className="flex gap-4">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 font-bold text-xs shadow-sm ${line.speaker === 'Host' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                    <div 
+                        key={i} 
+                        ref={el => { scrollRef.current[i] = el }}
+                        className={`flex gap-4 p-4 rounded-2xl transition-all duration-300 ${
+                            activeLineIndex === i 
+                            ? 'bg-emerald-50 border border-emerald-100 shadow-sm scale-[1.02]' 
+                            : 'hover:bg-slate-50/50 border border-transparent'
+                        }`}
+                    >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-xs shadow-sm ${line.speaker === 'Host' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
                             {line.speaker === 'Host' ? (complexity === 'KIDS' ? '🐱' : 'Host') : (complexity === 'KIDS' ? '🐶' : 'Exp')}
                         </div>
                         <div className="flex-1">
-                            <p className={`text-xs font-bold mb-1 opacity-50 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>{line.speaker}</p>
-                            <p className={`text-lg leading-relaxed ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>{line.text}</p>
+                            <p className={`text-[10px] font-bold mb-1 opacity-50 uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>{line.speaker}</p>
+                            <p className={`text-base leading-relaxed ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'} ${activeLineIndex === i ? 'font-medium text-slate-900 dark:text-white' : ''}`}>
+                                {line.text}
+                            </p>
                         </div>
                     </div>
                 ))}

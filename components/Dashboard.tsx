@@ -111,6 +111,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
+        source.playbackRate.value = 1.2; // Speed up playback slightly
         source.start(0);
         source.onended = () => setPlayingAudio(null);
     } catch (e) { console.error(e); setPlayingAudio(null); }
@@ -195,7 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const handleCopyVocab = () => {
     if (!data.vocab) return;
-    const text = data.vocab.map(v => `${v.word} [${v.ipa}] (${v.pos}): ${v.meaning}`).join('\n');
+    const text = data.vocab.map(v => `${v.word} [${v.ipa}] (${v.pos}): ${v.meaning}\nEx: ${v.sentence}`).join('\n');
     navigator.clipboard.writeText(text);
     alert('核心词汇已复制到剪贴板');
   };
@@ -383,11 +384,25 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             </div>
                                        </div>
                                        
-                                       {/* Meaning */}
+                                       {/* Meaning & Sentence */}
                                        <div className="flex-1">
-                                            <p className={`text-lg leading-relaxed ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>
+                                            <p className={`text-lg leading-relaxed mb-3 ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>
                                                 {v.meaning}
                                             </p>
+                                            {/* Example Sentence Display */}
+                                            {v.sentence && (
+                                                <div className={`p-3 rounded-xl text-sm italic border-l-4 ${theme.id === 'DARK_MODE' ? 'bg-slate-800/50 border-emerald-500/50 text-slate-400' : 'bg-slate-100 border-emerald-300 text-slate-600'}`}>
+                                                    <span className="font-bold not-italic mr-2 opacity-70">Ex:</span> 
+                                                    "{v.sentence}"
+                                                    <button 
+                                                        onClick={() => playHighQualitySpeech(v.sentence, `vs-${i}`)} 
+                                                        className={`ml-2 inline-flex align-middle p-1 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'hover:bg-emerald-200 text-slate-400 hover:text-emerald-700'}`}
+                                                        title="Play Sentence"
+                                                    >
+                                                        {playingAudio === `vs-${i}` ? <span className="animate-spin text-[10px]">⏳</span> : <Volume2 className="w-3 h-3" />}
+                                                    </button>
+                                                </div>
+                                            )}
                                        </div>
                                    </div>
                                ))}

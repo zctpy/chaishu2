@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { X, FileText, FileCode, FileType } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { AnalysisResult } from '../types';
 
 interface ExportReportModalProps {
@@ -18,8 +19,6 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
      
      const clone = content.cloneNode(true) as HTMLElement;
      
-     // Remove any "hidden in print" elements just in case, though we are using specific IDs
-     
      return `
         <!DOCTYPE html>
         <html lang="zh-CN">
@@ -27,10 +26,15 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${data.summary?.title || 'Book Analysis Report'}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
+            <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
             <style>
                 body { background-color: #f8fafc; padding: 40px; font-family: 'Inter', sans-serif; }
                 .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.1); }
+                @media print {
+                   body { padding: 0; background: white; }
+                   .container { box-shadow: none; max-width: 100%; padding: 0; }
+                   .break-inside-avoid { page-break-inside: avoid; }
+                }
             </style>
         </head>
         <body>
@@ -66,15 +70,19 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
         <style>
             body { font-family: 'Microsoft YaHei', sans-serif; font-size: 12pt; }
             h1 { font-size: 24pt; font-weight: bold; text-align: center; margin-bottom: 20px; }
-            h2 { font-size: 16pt; font-weight: bold; color: #059669; border-left: 5px solid #059669; padding-left: 10px; margin-top: 30px; margin-bottom: 15px; }
-            h3 { font-size: 14pt; font-weight: bold; margin-top: 20px; }
-            p { line-height: 1.6; margin-bottom: 10px; }
+            h2 { font-size: 16pt; font-weight: bold; color: #059669; border-left: 5px solid #059669; padding-left: 10px; margin-top: 30px; margin-bottom: 15px; background-color: #f0fdf4; padding-top: 5px; padding-bottom: 5px; }
+            h3 { font-size: 14pt; font-weight: bold; margin-top: 20px; color: #1e293b; }
+            p { line-height: 1.6; margin-bottom: 10px; text-align: justify; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; vertical-align: top; }
+            th { background-color: #f8fafc; font-weight: bold; }
+            ul { margin-bottom: 10px; }
+            li { margin-bottom: 5px; }
             .bg-slate-50 { background-color: #f8fafc; padding: 15px; border: 1px solid #ddd; }
-            .border { border: 1px solid #eee; }
             .text-emerald-600 { color: #059669; }
-            .text-slate-500 { color: #64748b; }
             .italic { font-style: italic; }
             .font-bold { font-weight: bold; }
+            .speaker-label { font-weight: bold; color: #475569; margin-bottom: 2px; }
         </style>
      </head>
      <body>`;
@@ -102,7 +110,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
         <div className="sticky top-0 h-16 bg-slate-900 text-white flex items-center justify-between px-6 shadow-md z-50">
             <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-emerald-400" />
-                <h2 className="font-bold text-lg">全书拆解报告预览</h2>
+                <h2 className="font-bold text-lg">全书拆解总报告</h2>
             </div>
             <div className="flex items-center gap-4">
             <button
@@ -146,20 +154,39 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
 
                 {/* 1. Overall Summary */}
                 <section className="mb-12 break-inside-avoid">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                        全书概览
+                    <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                        一、全书概览
                     </h2>
                     <div className="bg-slate-50 p-6 rounded-xl border border-slate-100 text-slate-800 leading-relaxed text-justify shadow-sm">
-                        {data.summary?.overallSummary || '暂无总结'}
+                        <ReactMarkdown>{data.summary?.overallSummary || '暂无总结'}</ReactMarkdown>
                     </div>
                 </section>
 
-                {/* Mind Map Section Removed */}
+                {/* 2. Chapter Details */}
+                <section className="mb-12">
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                        二、章节深度解析
+                    </h2>
+                    <div className="space-y-8">
+                        {data.summary?.chapters.map((c, i) => (
+                            <div key={i} className="break-inside-avoid mb-6">
+                                <h3 className="font-bold text-xl text-slate-800 mb-3 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center">{i+1}</span>
+                                    {c.chapterTitle}
+                                </h3>
+                                <div className="pl-8 text-slate-600 text-sm leading-7 text-justify border-l border-slate-200 ml-3">
+                                    {c.summary}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
 
                 {/* 3. Golden Quotes */}
+                {data.quotes && data.quotes.length > 0 && (
                 <section className="mb-12">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                        精选金句
+                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                        三、精选金句
                     </h2>
                     <div className="grid gap-4">
                         {data.quotes?.map((q, i) => (
@@ -175,12 +202,13 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
                         ))}
                     </div>
                 </section>
+                )}
 
                 {/* 4. Vocabulary */}
                 {data.vocab && data.vocab.length > 0 && (
                     <section className="mb-12 break-inside-avoid">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                            核心词汇表
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            四、核心词汇表
                         </h2>
                         <div className="grid grid-cols-2 gap-x-8 gap-y-4">
                             {data.vocab.map((v, i) => (
@@ -194,6 +222,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
                                     </div>
                                     <div className="text-right max-w-[60%]">
                                         <p className="text-sm text-slate-700 font-medium">{v.meaning}</p>
+                                        <p className="text-xs text-slate-400 italic mt-1">{v.sentence}</p>
                                     </div>
                                 </div>
                             ))}
@@ -201,37 +230,109 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
                     </section>
                 )}
 
-                {/* 5. Chapter Details */}
-                <section className="mb-12">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                        章节深度解析
-                    </h2>
-                    <div className="space-y-8">
-                        {data.summary?.chapters.map((c, i) => (
-                            <div key={i} className="break-inside-avoid">
-                                <h3 className="font-bold text-xl text-slate-800 mb-3 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded-full bg-slate-800 text-white text-xs flex items-center justify-center">{i+1}</span>
-                                    {c.chapterTitle}
-                                </h3>
-                                <div className="pl-8 text-slate-600 text-sm leading-7 text-justify border-l border-slate-200 ml-3">
-                                    {c.summary}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
+                {/* 5. Book Review */}
+                {data.bookReview && (
+                    <section className="mb-12">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            五、深度书评
+                        </h2>
+                        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                             <h3 className="text-xl font-bold mb-2">{data.bookReview.titles[0]}</h3>
+                             <p className="italic text-slate-500 mb-6 border-l-2 border-emerald-300 pl-3">"{data.bookReview.oneSentenceSummary}"</p>
+                             <div className="prose prose-slate max-w-none text-justify">
+                                 <ReactMarkdown>{data.bookReview.contentMarkdown}</ReactMarkdown>
+                             </div>
+                        </div>
+                    </section>
+                )}
 
-                {/* 6. Quiz Preview (Optional) */}
+                {/* 6. Action Plan */}
+                {data.actionPlan && data.actionPlan.length > 0 && (
+                    <section className="mb-12 break-inside-avoid">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            六、七天行动计划
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {data.actionPlan.map((day, i) => (
+                                <div key={i} className="bg-slate-50 p-4 rounded-lg border border-slate-100 break-inside-avoid">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="bg-emerald-600 text-white text-xs font-bold px-2 py-1 rounded">Day {day.day}</span>
+                                        <span className="font-bold text-slate-800">{day.focus}</span>
+                                    </div>
+                                    <ul className="list-disc list-inside text-sm text-slate-600 pl-1">
+                                        {day.tasks.map((task, t) => (
+                                            <li key={t}>{task}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 7. Reader Content (Bilingual) */}
+                {data.readerContent && data.readerContent.length > 0 && (
+                    <section className="mb-12">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            七、双语阅读精选
+                        </h2>
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-slate-100">
+                                    <th className="w-1/2 p-3 text-left font-bold text-slate-700">原文</th>
+                                    <th className="w-1/2 p-3 text-left font-bold text-slate-700">译文</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.readerContent.slice(0, 10).map((seg, i) => (
+                                    <tr key={i} className="border-b border-slate-100">
+                                        <td className="p-3 text-slate-800 leading-relaxed font-serif">{seg.original}</td>
+                                        <td className="p-3 text-slate-600 leading-relaxed">{seg.translation}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {data.readerContent.length > 10 && (
+                            <p className="text-center text-xs text-slate-400 mt-2 italic">* 仅展示前10段，完整内容请在APP内查看</p>
+                        )}
+                    </section>
+                )}
+
+                {/* 8. Podcast Script */}
+                {data.podcast && (
+                    <section className="mb-12">
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            八、播客脚本 ({data.podcast.title})
+                        </h2>
+                        <div className="space-y-3 font-mono text-sm bg-slate-50 p-6 rounded-xl border border-slate-100">
+                            {data.podcast.script.map((line, i) => (
+                                <div key={i} className="mb-2 break-inside-avoid">
+                                    <span className="font-bold text-slate-700 uppercase mr-2">{line.speaker}:</span>
+                                    <span className="text-slate-600">{line.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 9. Quiz (Optional) */}
                 {data.quiz && data.quiz.length > 0 && (
                     <section className="mb-12 break-inside-avoid">
-                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4">
-                            思考练习
+                        <h2 className="text-2xl font-bold text-slate-800 mb-6 flex items-center gap-3 border-l-4 border-emerald-500 pl-4 bg-emerald-50 py-2 rounded-r-lg">
+                            九、思考练习
                         </h2>
                         <div className="space-y-4">
-                            {data.quiz.slice(0, 3).map((q, i) => (
-                                <div key={i} className="bg-slate-50 p-4 rounded-lg text-sm">
+                            {data.quiz.slice(0, 5).map((q, i) => (
+                                <div key={i} className="bg-slate-50 p-4 rounded-lg text-sm border border-slate-100 break-inside-avoid">
                                     <p className="font-bold text-slate-800 mb-2">Q{i+1}: {q.questionCn}</p>
-                                    <p className="text-xs text-slate-500">解析: {q.explanationCn}</p>
+                                    <ul className="list-disc list-inside mb-2 text-slate-600 pl-2">
+                                        {q.optionsCn.map((opt, oi) => (
+                                            <li key={oi} className={oi === q.correctAnswerIndex ? 'font-bold text-emerald-600' : ''}>
+                                                {opt} {oi === q.correctAnswerIndex && '(正确)'}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200">解析: {q.explanationCn}</p>
                                 </div>
                             ))}
                         </div>

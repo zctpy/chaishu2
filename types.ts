@@ -48,6 +48,7 @@ export interface VocabItem {
   ipa: string;
   pos: string; // Part of Speech
   meaning: string;
+  sentence: string; // Example sentence
 }
 
 export interface Quote {
