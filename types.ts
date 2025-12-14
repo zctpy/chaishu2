@@ -13,7 +13,8 @@ export enum TabView {
   PLAN = 'PLAN',
   READER = 'READER',
   REVIEW = 'REVIEW',
-  PODCAST = 'PODCAST', // New Feature
+  PODCAST = 'PODCAST', 
+  COACH = 'COACH', // New Voice Coach Feature
 }
 
 export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO';

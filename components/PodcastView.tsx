@@ -343,10 +343,10 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                     <div 
                         key={i} 
                         ref={el => { scrollRef.current[i] = el }}
-                        className={`flex gap-4 p-4 rounded-2xl transition-all duration-300 ${
+                        className={`flex gap-4 p-4 rounded-2xl transition-all duration-300 border-l-4 ${
                             activeLineIndex === i 
-                            ? 'bg-emerald-50 border border-emerald-100 shadow-sm scale-[1.02]' 
-                            : 'hover:bg-slate-50/50 border border-transparent'
+                            ? `${theme.id === 'DARK_MODE' ? 'border-l-emerald-400 bg-white/5' : 'border-l-emerald-500 bg-emerald-50/30'} pl-5 scale-[1.01]` 
+                            : 'border-l-transparent hover:bg-slate-50/50 opacity-70 hover:opacity-100'
                         }`}
                     >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-bold text-xs shadow-sm ${line.speaker === 'Host' ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -354,7 +354,11 @@ const PodcastView: React.FC<PodcastViewProps> = ({ podcast, onGenerate, complexi
                         </div>
                         <div className="flex-1">
                             <p className={`text-[10px] font-bold mb-1 opacity-50 uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>{line.speaker}</p>
-                            <p className={`text-base leading-relaxed ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'} ${activeLineIndex === i ? 'font-medium text-slate-900 dark:text-white' : ''}`}>
+                            <p className={`text-base leading-relaxed ${
+                                activeLineIndex === i 
+                                ? (theme.id === 'DARK_MODE' ? 'font-black text-white' : 'font-black text-slate-900') 
+                                : (theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700')
+                            }`}>
                                 {line.text}
                             </p>
                         </div>

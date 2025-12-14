@@ -1,5 +1,7 @@
 {
   "name": "BookMaster AI",
   "description": "An intelligent book deconstruction tool that generates summaries, mind maps, vocabulary lists, and study plans from book text.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

@@ -4,7 +4,7 @@ import {
   BookOpen, Quote, Languages, CheckSquare, Calendar, RefreshCw, Volume2, 
   Sparkles, PenTool, Mic, LayoutGrid, LogOut, ChevronRight, Play, Headphones,
   Share2, CheckCircle2, XCircle, AlertCircle, Loader2, Menu, X, ArrowLeft, Copy, ChevronDown,
-  Image as ImageIcon, FileCode, Download, PlusCircle
+  Image as ImageIcon, FileCode, Download, PlusCircle, MessageSquare
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AnalysisResult, TabView, ReviewStyle, Theme, ComplexityLevel } from '../types';
@@ -12,6 +12,7 @@ import ReaderView from './ReaderView';
 import SocialShareModal, { ShareData } from './SocialShareModal';
 import ExportReportModal from './ExportReportModal';
 import PodcastView from './PodcastView';
+import LiveCoach from './LiveCoach';
 import { generateSpeech, decodePCM } from '../services/geminiService';
 
 // Ensure html2canvas is typed
@@ -219,6 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     { id: TabView.PRACTICE, label: '深度测验', icon: CheckSquare },
     { id: TabView.PLAN, label: '行动计划', icon: Calendar },
     { id: TabView.PODCAST, label: '生成播客', icon: Mic }, 
+    { id: TabView.COACH, label: '语音教练', icon: MessageSquare }, // Added Live Coach Tab
   ];
 
   const renderContent = () => {
@@ -278,6 +280,16 @@ const Dashboard: React.FC<DashboardProps> = ({
                  />
             </div>
         );
+
+      case TabView.COACH:
+          return (
+              <div className={containerClass}>
+                  <LiveCoach 
+                      bookContext={JSON.stringify(data.summary) || ''}
+                      theme={theme}
+                  />
+              </div>
+          );
 
       case TabView.QUOTES:
           return (

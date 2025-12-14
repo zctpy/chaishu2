@@ -7,6 +7,7 @@ const ai = new GoogleGenAI({ apiKey });
 
 const modelName = 'gemini-2.5-flash';
 const ttsModelName = 'gemini-2.5-flash-preview-tts';
+const liveModelName = 'gemini-2.5-flash-native-audio-preview-09-2025';
 
 // Global cache for TTS to improve performance
 const speechCache = new Map<string, ArrayBuffer>();
@@ -292,11 +293,16 @@ export const generateActionPlan = async (text: string, complexity: ComplexityLev
 
 export const generateReaderContent = async (text: string, focusChapter?: string, complexity: ComplexityLevel = 'NORMAL'): Promise<ReaderSegment[]> => {
   const prompt = `
-  Analyze text. ${focusChapter ? `Focus on: ${focusChapter}` : ""}
-  Break into segments.
+  Analyze the text. ${focusChapter ? `Focus on: ${focusChapter}` : ""}
+  Break it into logical reading segments.
+  
+  TRANSLATION RULE (Bi-directional):
+  1. If the 'original' text is primarily Chinese -> Translate it into English.
+  2. If the 'original' text is primarily English (or other) -> Translate it into Chinese.
+  
   ${complexity === 'KIDS' 
-    ? "Simplify the 'original' text slightly if it's too hard. Translate into very simple, storybook Chinese." 
-    : "Keep original text exact. Translate naturally."}
+    ? "For Kids Mode: Keep the translation simple, fun, and easy to read. If translating to English, use simple vocabulary." 
+    : "For Normal Mode: Ensure the translation is accurate, literary, and fluent."}
   
   Text: ${text.substring(0, 20000)}...`; 
 
@@ -463,3 +469,20 @@ export const createChatSession = (systemInstruction: string) => {
     }
   });
 };
+
+// --- Live API Helper ---
+// Correctly separating callbacks from the config object
+export const createLiveSession = (systemInstruction: string, options: { callbacks?: any, config?: any } = {}) => {
+  return ai.live.connect({
+      model: liveModelName,
+      config: {
+          systemInstruction: systemInstruction,
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+          },
+          ...options.config
+      },
+      callbacks: options.callbacks
+  });
+}
