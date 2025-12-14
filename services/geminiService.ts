@@ -7,7 +7,8 @@ const ai = new GoogleGenAI({ apiKey });
 
 const modelName = 'gemini-2.5-flash';
 const ttsModelName = 'gemini-2.5-flash-preview-tts';
-const liveModelName = 'gemini-2.5-flash-native-audio-preview-09-2025';
+// Fallback to 2.0-flash-exp as 2.5-preview might be unavailable in some regions/tiers
+const liveModelName = 'gemini-2.0-flash-exp';
 
 // Global cache for TTS to improve performance
 const speechCache = new Map<string, ArrayBuffer>();

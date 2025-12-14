@@ -43,10 +43,6 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
         outputAudioContextRef.current = null;
     }
 
-    // Note: The session is maintained via promise, we can't explicitly close it easily 
-    // without the session object, but stopping audio processing effectively stops the interaction from UI side.
-    // Ideally, we should resolve the promise and call session.close() if possible, but 
-    // simply discarding the reference and closing contexts works for cleanup here.
     sessionPromiseRef.current = null;
   };
 
@@ -144,8 +140,12 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
                 },
                 onerror: (e: any) => {
                     console.error("Live Session Error", e);
-                    setError("连接中断，请重试");
+                    setError("服务暂时不可用或连接中断，请稍后重试。");
                     setIsConnected(false);
+                    setIsTalking(false);
+                    // Force cleanup
+                    if (inputAudioContextRef.current) inputAudioContextRef.current.close();
+                    if (outputAudioContextRef.current) outputAudioContextRef.current.close();
                 }
             }
         });
@@ -157,7 +157,7 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
         if (e.name === 'NotAllowedError' || e.message?.includes('Permission denied')) {
              setError("无法访问麦克风。请在浏览器设置中允许此网站使用麦克风。");
         } else {
-             setError("连接失败，请检查网络或重试。");
+             setError("连接初始化失败，请检查网络或重试。");
         }
     }
   };
