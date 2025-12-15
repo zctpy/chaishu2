@@ -225,42 +225,64 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderContent = () => {
     // Style override wrapper based on complexity
-    const containerClass = `animate-fadeIn max-w-5xl mx-auto pb-20 ${complexity === 'KIDS' ? 'font-comic' : ''}`;
+    const containerClass = `animate-fadeIn max-w-6xl mx-auto pb-20 ${complexity === 'KIDS' ? 'font-comic' : ''}`;
     const headingClass = `text-4xl md:text-5xl font-black mb-8 tracking-tight ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-white' : 'text-slate-800'}`;
-    const cardBaseClass = `${theme.cardClass} rounded-[2.5rem] p-10 relative overflow-hidden transition-all duration-300`;
+    const cardBaseClass = `${theme.cardClass} rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden transition-all duration-300`;
 
     switch (activeTab) {
       case TabView.SUMMARY:
         return (
           <div className={containerClass}>
             <div className={cardBaseClass}>
-               <h1 className={headingClass}>
-                   {data.summary?.title}
-               </h1>
-               <div className={`prose max-w-none text-lg leading-loose ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'prose-invert' : 'text-slate-600'}`}>
-                   {complexity === 'KIDS' && <div className="text-3xl mb-4">🧸 📖 ✨</div>}
-                   <ReactMarkdown>{data.summary?.overallSummary || ''}</ReactMarkdown>
+               {/* Improved Title Typography */}
+               <div className="mb-12 text-center md:text-left border-b border-slate-100 dark:border-slate-700 pb-10">
+                   <h1 className={`text-5xl md:text-7xl font-black mb-6 tracking-tighter leading-[1.1] drop-shadow-sm ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-white' : 'text-slate-900'}`}>
+                       {data.summary?.title}
+                   </h1>
+                   {data.summary?.author && (
+                       <p className={`text-2xl font-medium font-serif italic ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                           by {data.summary.author}
+                       </p>
+                   )}
+               </div>
+
+               {/* Improved Summary Text */}
+               <div className={`prose prose-lg md:prose-xl max-w-none mb-16 px-2 md:px-4 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'prose-invert text-slate-300' : 'text-slate-600'}`}>
+                   {complexity === 'KIDS' && <div className="text-4xl mb-6 text-center animate-bounce">🧸 📖 ✨</div>}
+                   <div className="leading-loose font-serif-sc tracking-wide text-justify">
+                      <ReactMarkdown>{data.summary?.overallSummary || ''}</ReactMarkdown>
+                   </div>
                </div>
                
                {/* Chapters Optimized Typography */}
-               <div className="mt-14 grid gap-8">
-                   <h2 className={`text-3xl font-bold border-b pb-4 flex items-center gap-3 ${theme.id === 'DARK_MODE' ? 'text-white border-white/10' : 'text-slate-800 border-slate-100'}`}>
-                       <BookOpen className="w-8 h-8 text-emerald-500" />
-                       章节精华
-                   </h2>
-                   <div className="grid gap-6 md:grid-cols-2">
+               <div className="mt-16 grid gap-12">
+                   <div className="flex items-center gap-4 mb-4 pl-2">
+                       <div className="h-10 w-1.5 bg-emerald-500 rounded-full"></div>
+                       <h2 className={`text-3xl md:text-4xl font-black tracking-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                           章节精华
+                       </h2>
+                   </div>
+                   
+                   <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
                        {data.summary?.chapters.map((c, i) => (
-                           <div key={i} className={`p-8 rounded-3xl border transition-all hover:-translate-y-1 group ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-transparent hover:bg-white hover:shadow-xl hover:shadow-emerald-500/10'}`}>
-                               <div className={`text-xs font-bold mb-3 uppercase tracking-wider flex items-center gap-2 ${theme.accentColor}`}>
-                                   <span className="w-6 h-6 rounded-full bg-current text-white flex items-center justify-center text-[10px] opacity-80">{i+1}</span>
-                                   Chapter
+                           <div key={i} className={`p-10 rounded-[2rem] border transition-all duration-300 hover:-translate-y-2 group relative overflow-hidden ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50/60 border-slate-200/50 hover:bg-white hover:shadow-2xl hover:shadow-emerald-900/10'}`}>
+                               
+                               {/* Decorative background number */}
+                               <div className={`absolute -right-6 -top-10 text-[140px] font-black opacity-[0.04] select-none pointer-events-none transition-transform group-hover:scale-110 duration-500 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>
+                                   {i + 1}
                                </div>
-                               <h3 className={`text-xl font-bold mb-4 leading-tight ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-100' : 'text-slate-800'}`}>
+
+                               <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-6 ${theme.id === 'DARK_MODE' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-800'}`}>
+                                   Chapter {i+1}
+                               </div>
+
+                               <h3 className={`text-2xl md:text-3xl font-bold mb-6 leading-tight ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-100' : 'text-slate-900'}`}>
                                    {c.chapterTitle}
                                </h3>
-                               <p className={`text-base leading-relaxed ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-400' : 'text-slate-600'}`}>
+                               
+                               <div className={`text-lg leading-loose font-serif-sc text-justify ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-400' : 'text-slate-600'}`}>
                                    {c.summary}
-                               </p>
+                               </div>
                            </div>
                        ))}
                    </div>
