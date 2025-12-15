@@ -320,8 +320,18 @@ export const generateReaderContent = async (text: string, focusChapter?: string,
 }
 
 export const generateReview = async (text: string, style: ReviewStyle, language: 'CN' | 'EN'): Promise<BookReview> => {
-  // Review is strictly for adults usually, but we keep it general
-  const prompt = `Write a book review. Style: ${style}. Language: ${language}.
+  // Determine specific prompts based on style
+  let styleInstruction = `Style: ${style}.`;
+  
+  if (style === 'LIBAI') {
+      styleInstruction = `Role: You are the poet Li Bai (李白). 
+      Task: Write a book review in the form of Classical Chinese Poetry (古诗/词) or highly romantic poetic prose. 
+      - The 'titles' should be poetic 7-character phrases.
+      - The 'oneSentenceSummary' should be a poetic couplet (对联).
+      - The 'contentMarkdown' MUST be formatted as a poem or poetic prose. Express bold, romantic, and unconstrained emotions. Use imagery of wine, moon, and swords.`;
+  }
+
+  const prompt = `Write a book review. ${styleInstruction} Language: ${language}.
   Text: ${text.substring(0, 40000)}...`;
 
   const response = await generateContentWithRetry("gemini-2.5-flash", {
@@ -329,7 +339,7 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
     config: {
       responseMimeType: "application/json",
       responseSchema: reviewSchema,
-      temperature: 0.8,
+      temperature: 0.9, // Higher temp for creative writing
     }
   });
 

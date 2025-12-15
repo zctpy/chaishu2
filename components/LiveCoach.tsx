@@ -69,7 +69,12 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
         - Discuss the plot, themes, characters, or specific quotes.
         - If the user asks about something else, politely guide them back to the book.
         - Keep your responses concise and conversational (ideal for voice chat).
-        - Speak in the language the user speaks (detect automatically, likely Chinese).
+        
+        IMPORTANT LANGUAGE RULES:
+        - ONLY speak Standard Mandarin Chinese (Putonghua) or English.
+        - Do NOT use Cantonese, regional dialects, or mixed languages.
+        - If the user speaks Chinese, reply in clear Standard Mandarin.
+        - If the user speaks English, reply in English.
         `;
 
         let nextStartTime = 0;
