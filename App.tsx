@@ -273,10 +273,10 @@ const App: React.FC = () => {
     } catch(e) { alert("生成书评失败"); } finally { setGeneratingReview(false); }
   };
 
-  const handleGeneratePodcast = async () => {
+  const handleGeneratePodcast = async (language: 'CN' | 'EN') => {
       if (!bookText) return;
       try {
-          const result = await geminiService.generatePodcast(bookText, complexity);
+          const result = await geminiService.generatePodcast(bookText, complexity, language);
           setAnalysisData(prev => ({ ...prev, podcast: result }));
       } catch (e) {
           console.error(e);

@@ -379,7 +379,9 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
     
     // 2. Generate Audio (Multi-speaker)
     // We construct the prompt for TTS model to act out the script
-    const conversationText = result.script.map(line => `${line.speaker}: ${line.text}`).join('\n');
+    // Explicitly instruction "TTS the following conversation" to prevent the model from generating new content
+    const conversationText = `TTS the following conversation between Host and Expert:
+${result.script.map(line => `${line.speaker}: ${line.text}`).join('\n')}`;
     
     try {
         const audioResponse = await ai.models.generateContent({
