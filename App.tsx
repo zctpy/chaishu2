@@ -167,9 +167,8 @@ const App: React.FC = () => {
 
   const loadSecondaryData = async (text: string) => {
     try {
-      await new Promise(r => setTimeout(r, 1500));
-      const vocab = await geminiService.generateVocab(text, [], complexity);
-      setAnalysisData(prev => ({ ...prev, vocab }));
+      // NOTE: Vocab generation removed from automatic flow as per request
+      // Users will now trigger it manually
 
       await new Promise(r => setTimeout(r, 1500));
       const quiz = await geminiService.generateQuiz(text, [], complexity);
@@ -205,7 +204,7 @@ const App: React.FC = () => {
       const newVocab = await geminiService.generateVocab(bookText, existing, complexity);
       setAnalysisData(prev => ({ ...prev, vocab: newVocab }));
     } catch (e) {
-      alert("刷新失败");
+      alert("生成失败");
     } finally {
       setRefreshingVocab(false);
     }

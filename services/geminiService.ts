@@ -357,9 +357,20 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
 // --- PODCAST GENERATION (New Feature) ---
 
 export const generatePodcast = async (text: string, complexity: ComplexityLevel = 'NORMAL', language: 'CN' | 'EN' = 'EN'): Promise<PodcastResult> => {
+    // Dynamic duration based on text length
+    const textLen = text.length;
+    let durationHint = "2-3 minutes";
+    if (textLen > 15000) {
+        durationHint = "7-9 minutes";
+    } else if (textLen > 8000) {
+        durationHint = "5-7 minutes";
+    } else if (textLen > 3000) {
+        durationHint = "3-5 minutes";
+    }
+
     // 1. Generate Script
     const scriptPrompt = `
-    Create a 2-minute podcast script discussing this book.
+    Create a ${durationHint} podcast script discussing this book.
     Characters:
     - Host: Enthusiastic, asks questions.
     - Expert: Knowledgeable, answers with insights.
@@ -372,7 +383,7 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
     IMPORTANT: The script must be in ${language === 'CN' ? 'CHINESE (Mandarin)' : 'ENGLISH'}.
     
     Output JSON with 'title' and 'script' array.
-    Text: ${text.substring(0, 30000)}...
+    Text: ${text.substring(0, 50000)}...
     `;
 
     const scriptResponse = await generateContentWithRetry(modelName, {

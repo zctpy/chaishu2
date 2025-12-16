@@ -368,28 +368,47 @@ const Dashboard: React.FC<DashboardProps> = ({
               <div className={containerClass + " space-y-6"}>
                    <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                       <h2 className={headingClass.replace('mb-8', 'mb-0')}>核心词汇</h2>
-                      <div className="flex items-center gap-3">
-                          {data.vocab && (
-                              <>
-                                <button onClick={handleCopyVocab} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="复制列表">
-                                    <Copy className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleExportImage(vocabRef, 'vocabulary')} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="导出图片">
-                                    <ImageIcon className="w-4 h-4" />
-                                </button>
-                              </>
-                          )}
-                          <button onClick={() => onRefreshVocab(data.vocab || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
-                              <RefreshCw className={`w-4 h-4 ${isRefreshingVocab?'animate-spin':''}`} /> 换一组
-                          </button>
-                      </div>
+                      {data.vocab && (
+                        <div className="flex items-center gap-3">
+                              <button onClick={handleCopyVocab} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="复制列表">
+                                  <Copy className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleExportImage(vocabRef, 'vocabulary')} className={`p-2.5 rounded-full border transition-colors ${theme.id==='DARK_MODE'?'border-slate-600 text-slate-300 hover:bg-slate-700':'bg-white border-slate-100 text-slate-600 hover:bg-emerald-50'}`} title="导出图片">
+                                  <ImageIcon className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => onRefreshVocab(data.vocab || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
+                                  <RefreshCw className={`w-4 h-4 ${isRefreshingVocab?'animate-spin':''}`} /> 换一组
+                              </button>
+                        </div>
+                      )}
                   </div>
                   
                   {!data.vocab ? (
-                      <div className="flex flex-col items-center justify-center p-20 opacity-60">
-                          <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                          <p>正在分析词汇...</p>
-                      </div>
+                      isRefreshingVocab ? (
+                        <div className="flex flex-col items-center justify-center p-20 opacity-60">
+                            <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                            <p>正在分析词汇...</p>
+                        </div>
+                      ) : (
+                        <div className={`${cardBaseClass} flex flex-col items-center justify-center text-center min-h-[400px]`}>
+                             <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                                <Languages className="w-10 h-10 text-slate-400" />
+                             </div>
+                             <h3 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
+                                 提取核心词汇
+                             </h3>
+                             <p className={`text-lg mb-8 max-w-md ${theme.id === 'DARK_MODE' ? 'text-slate-400' : 'text-slate-500'}`}>
+                                 AI 将智能识别文中关键词，提供 IPA 音标、词性及例句，助您深度掌握专业术语。
+                             </p>
+                             <button 
+                               onClick={() => onRefreshVocab([])}
+                               className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+                             >
+                                <Sparkles className="w-5 h-5" />
+                                开始生成
+                             </button>
+                        </div>
+                      )
                   ) : (
                       <div ref={vocabRef} className={`rounded-[2rem] overflow-hidden border shadow-sm p-2 ${theme.id === 'DARK_MODE' ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-slate-100'}`}>
                            {/* Improved Vocab Layout using Flex Row Cards */}
