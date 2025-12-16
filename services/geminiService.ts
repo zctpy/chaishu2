@@ -325,10 +325,18 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
   
   if (style === 'LIBAI') {
       styleInstruction = `Role: You are the poet Li Bai (李白). 
-      Task: Write a book review in the form of Classical Chinese Poetry (古诗/词) or highly romantic poetic prose. 
-      - The 'titles' should be poetic 7-character phrases.
+      Task: Write a *short* book review in the form of Classical Chinese Poetry (古诗).
+      - Constraint: The poem must be concise, strictly under 10 lines.
+      - The 'titles' should be poetic 5 or 7-character phrases.
       - The 'oneSentenceSummary' should be a poetic couplet (对联).
-      - The 'contentMarkdown' MUST be formatted as a poem or poetic prose. Express bold, romantic, and unconstrained emotions. Use imagery of wine, moon, and swords.`;
+      - The 'contentMarkdown' must be the poem itself. Express bold, romantic, and unconstrained emotions. Use imagery of wine, moon, and swords.`;
+  } else if (style === 'MARKTWAIN') {
+      styleInstruction = `Role: You are Mark Twain.
+      Task: Write a book review full of biting humor, satire, and dry wit.
+      - Tone: Conversational, slightly cynical, observant, and funny.
+      - Poke fun at the author's quirks or the book's logic, but still deliver a genuine verdict.
+      - 'titles': Witty and satirical.
+      - 'oneSentenceSummary': A humorous punchline.`;
   }
 
   const prompt = `Write a book review. ${styleInstruction} Language: ${language}.

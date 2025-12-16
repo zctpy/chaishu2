@@ -454,7 +454,8 @@ const Dashboard: React.FC<DashboardProps> = ({
              { id: 'ESSAY', label: '随笔散文' },
              { id: 'NIETZSCHE', label: '尼采风格' },
              { id: 'SUDONGPO', label: '苏东坡风格' },
-             { id: 'LIBAI', label: '李白风格 (诗歌)' }
+             { id: 'LIBAI', label: '李白风格 (诗歌)' },
+             { id: 'MARKTWAIN', label: '马克·吐温风格 (幽默)' }
           ];
 
           return (

@@ -17,7 +17,7 @@ export enum TabView {
   COACH = 'COACH', // New Voice Coach Feature
 }
 
-export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO' | 'LIBAI';
+export type ReviewStyle = 'GENTLE' | 'CRITICAL' | 'ACADEMIC' | 'ESSAY' | 'NIETZSCHE' | 'COMPARATIVE' | 'DIALOGUE' | 'SUDONGPO' | 'LIBAI' | 'MARKTWAIN';
 
 export type ComplexityLevel = 'NORMAL' | 'KIDS';
 
