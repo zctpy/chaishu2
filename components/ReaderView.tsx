@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Volume2, Loader2, SkipForward, SkipBack, ArrowDownCircle, BookOpen } from 'lucide-react';
+import { Play, Pause, RotateCcw, Volume2, Loader2, SkipForward, SkipBack, ArrowDownCircle, BookOpen, Download } from 'lucide-react';
 import { ReaderSegment, ChapterSummary } from '../types';
-import { generateSpeech, decodePCM } from '../services/geminiService';
+import { generateSpeech, decodePCM, createWavBlob } from '../services/geminiService';
 
 interface ReaderViewProps {
   segments: ReaderSegment[] | undefined;
@@ -24,6 +24,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   
   // Audio state refs
   const audioBufferRef = useRef<AudioBuffer | null>(null);
+  const rawArrayBufferRef = useRef<ArrayBuffer | null>(null); // Keep original for download
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
   const isManuallyPausedRef = useRef<boolean>(false);
@@ -72,6 +73,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         pausedTimeRef.current = 0;
         startTimeRef.current = 0;
         audioBufferRef.current = null;
+        rawArrayBufferRef.current = null;
     }
   };
 
@@ -140,6 +142,9 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         const arrayBuffer = await generateSpeech(textToSpeak);
         if (!arrayBuffer) throw new Error("Failed to generate speech");
 
+        // Keep raw buffer for download
+        rawArrayBufferRef.current = arrayBuffer;
+
         const ctx = await initAudioContext();
         const audioBuffer = decodePCM(ctx, arrayBuffer);
         
@@ -182,12 +187,38 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     // Note: The useEffect on currentIndex will handle playback trigger
   };
 
+  const handleDownloadAudio = () => {
+      // Check if we have an audio buffer for the current segment
+      // We can only download what has been loaded/generated
+      if (!rawArrayBufferRef.current && !audioBufferRef.current) {
+          alert("请先播放音频以生成数据，然后再点击下载。");
+          return;
+      }
+      
+      // If we only have decoded AudioBuffer, we can't easily go back to original PCM arraybuffer 
+      // without re-encoding unless we kept it.
+      // So we used `rawArrayBufferRef` to store the raw response from API.
+      
+      if (rawArrayBufferRef.current) {
+         // Convert raw PCM to WAV
+         // The API returns 24000Hz PCM usually
+         const wavBlob = createWavBlob(rawArrayBufferRef.current, 24000);
+         const url = URL.createObjectURL(wavBlob);
+         const a = document.createElement('a');
+         a.href = url;
+         a.download = `segment_${currentIndex + 1}_${Date.now()}.wav`;
+         a.click();
+         setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+  };
+
   // Effect to trigger audio when index changes AND we are in playing state
   useEffect(() => {
     if (isPlaying && !isAudioLoading) {
         // Reset paused time for new segment
         pausedTimeRef.current = 0;
         audioBufferRef.current = null;
+        rawArrayBufferRef.current = null;
         playSegmentAudio(currentIndex, 0);
     }
   }, [currentIndex]); 
@@ -208,6 +239,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     setReadLanguage(newLang);
     stopAudio(false);
     audioBufferRef.current = null; // Clear buffer as content changed
+    rawArrayBufferRef.current = null;
 
     if (isPlaying) {
         playSegmentAudio(currentIndex, offset, newLang);
@@ -306,6 +338,16 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${readLanguage === 'translation' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}
              >
                 译文 (CN)
+             </button>
+             {/* Download Audio Button */}
+             <div className="w-px h-6 bg-slate-200 mx-1"></div>
+             <button 
+               onClick={handleDownloadAudio}
+               className="p-2 rounded-lg text-slate-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all disabled:opacity-30"
+               disabled={isAudioLoading || (!rawArrayBufferRef.current && !audioBufferRef.current)}
+               title="下载原文朗读音频"
+             >
+                <Download className="w-4 h-4" />
              </button>
          </div>
       </div>

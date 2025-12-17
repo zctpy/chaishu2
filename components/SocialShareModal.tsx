@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { X, Download, Share2, Sparkles, BookOpen, Twitter, Facebook, Quote, Palette } from 'lucide-react';
+import { X, Download, Share2, Sparkles, BookOpen, Twitter, Facebook, Quote, Palette, Circle } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -27,14 +27,15 @@ const COLORS = [
     { id: 'NEON', name: '赛博霓虹', from: '#2e1065', to: '#be185d', text: '#fff', overlay: 'bg-gradient-to-br from-cyan-500/20 to-fuchsia-500/20' },
     { id: 'OBSIDIAN', name: '黑金流光', from: '#09090b', to: '#27272a', text: '#fcd34d', overlay: 'bg-gradient-to-tr from-yellow-500/10 via-transparent to-yellow-200/5' },
     { id: 'OCEAN', name: '深海极光', from: '#0f172a', to: '#0e7490', text: '#e0f2fe', overlay: 'bg-gradient-to-t from-cyan-400/10 to-blue-600/20' },
-    { id: 'SUNSET', name: '落日弥红', from: '#451a03', to: '#9f1239', text: '#fff1f2', overlay: 'bg-gradient-to-bl from-orange-500/20 to-rose-500/20' },
-    { id: 'FOREST', name: '迷雾森林', from: '#022c22', to: '#14532d', text: '#dcfce7', overlay: 'bg-gradient-to-br from-emerald-400/10 to-teal-400/10' },
+    { id: 'BEIGE', name: '护眼米黄', from: '#fdfbf7', to: '#e8e4d9', text: '#4a4740', overlay: 'bg-gradient-to-br from-orange-100/30 to-yellow-100/30' },
+    { id: 'ZEN', name: '禅意墨绿', from: '#1a2e26', to: '#26423a', text: '#d1fae5', overlay: 'bg-gradient-to-br from-emerald-900/40 to-teal-900/40' },
 ];
 
 const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, data }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedColorIdx, setSelectedColorIdx] = useState(0);
+  const [isPureMode, setIsPureMode] = useState(false);
 
   if (!isOpen || !data) return null;
 
@@ -125,55 +126,71 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
               ref={cardRef} 
               className="w-[360px] shrink-0 relative flex flex-col overflow-hidden shadow-2xl transition-all duration-500 font-sans"
               style={{
-                  background: `linear-gradient(135deg, ${activeColor.from}, ${activeColor.to})`,
-                  color: activeColor.text,
+                  background: isPureMode ? '#ffffff' : `linear-gradient(135deg, ${activeColor.from}, ${activeColor.to})`,
+                  color: isPureMode ? '#1e293b' : activeColor.text,
                   minHeight: '640px',
               }}
             >
-                {/* 1. Noise Texture Overlay */}
-                <div className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+                {!isPureMode && (
+                    <>
+                        {/* 1. Noise Texture Overlay */}
+                        <div className="absolute inset-0 opacity-[0.08] pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
-                {/* 2. Color Gradient Overlay for depth */}
-                <div className={`absolute inset-0 ${activeColor.overlay} mix-blend-soft-light pointer-events-none`}></div>
+                        {/* 2. Color Gradient Overlay for depth */}
+                        <div className={`absolute inset-0 ${activeColor.overlay} mix-blend-soft-light pointer-events-none`}></div>
+                        
+                        {/* 3. Abstract Glow Shapes */}
+                        <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/10 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"></div>
+                        <div className="absolute bottom-0 -left-10 w-64 h-64 bg-white/5 rounded-full blur-[60px] pointer-events-none mix-blend-overlay"></div>
+
+                        {/* 4. Elegant Border Frame */}
+                        <div className="absolute inset-4 border border-white/20 z-10 pointer-events-none opacity-50"></div>
+                        <div className="absolute inset-5 border border-white/10 z-10 pointer-events-none opacity-30"></div>
+                    </>
+                )}
                 
-                {/* 3. Abstract Glow Shapes */}
-                <div className="absolute -top-20 -right-20 w-72 h-72 bg-white/10 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"></div>
-                <div className="absolute bottom-0 -left-10 w-64 h-64 bg-white/5 rounded-full blur-[60px] pointer-events-none mix-blend-overlay"></div>
-
-                {/* 4. Elegant Border Frame */}
-                <div className="absolute inset-4 border border-white/20 z-10 pointer-events-none opacity-50"></div>
-                <div className="absolute inset-5 border border-white/10 z-10 pointer-events-none opacity-30"></div>
+                {/* Minimalist Border for Pure Mode */}
+                {isPureMode && (
+                     <div className="absolute inset-6 border border-slate-900 pointer-events-none"></div>
+                )}
 
                 {/* Content Container */}
-                <div className="relative z-30 flex flex-col h-full p-10">
+                <div className={`relative z-30 flex flex-col h-full ${isPureMode ? 'p-12' : 'p-10'}`}>
                     
                     {/* Header: Label */}
-                    <div className="flex justify-between items-center mb-8 opacity-80">
-                       <div className="flex items-center gap-2">
-                           <BookOpen className="w-4 h-4" />
-                           <span className="text-xs font-bold tracking-[0.2em] uppercase">读书感悟</span>
-                       </div>
-                       <Sparkles className="w-4 h-4 opacity-70" />
-                    </div>
+                    {!isPureMode && (
+                        <div className="flex justify-between items-center mb-8 opacity-80">
+                            <div className="flex items-center gap-2">
+                                <BookOpen className="w-4 h-4" />
+                                <span className="text-xs font-bold tracking-[0.2em] uppercase">读书感悟</span>
+                            </div>
+                            <Sparkles className="w-4 h-4 opacity-70" />
+                        </div>
+                    )}
+                    
+                    {isPureMode && <div className="mb-8"></div>}
 
                     {/* Book Title Area */}
-                    <div className="mb-10 text-center">
-                       <h2 className="text-2xl font-black leading-tight mb-2 tracking-wide font-serif-sc drop-shadow-sm">
-                           {data.title}
-                       </h2>
-                       {data.author && (
-                           <div className="inline-block relative">
-                              <span className="text-sm opacity-80 italic font-medium">
-                                 {data.author} 著
-                              </span>
-                              <div className="absolute -bottom-1 left-0 right-0 h-px bg-current opacity-30"></div>
-                           </div>
-                       )}
-                    </div>
+                    {!isPureMode && (
+                        <div className="mb-10 text-center">
+                        <h2 className="text-2xl font-black leading-tight mb-2 tracking-wide font-serif-sc drop-shadow-sm">
+                            {data.title}
+                        </h2>
+                        {data.author && (
+                            <div className="inline-block relative">
+                                <span className="text-sm opacity-80 italic font-medium">
+                                    {data.author} 著
+                                </span>
+                                <div className="absolute -bottom-1 left-0 right-0 h-px bg-current opacity-30"></div>
+                            </div>
+                        )}
+                        </div>
+                    )}
 
                     {/* Main Content Area */}
                     <div className="flex-1 flex flex-col justify-center relative mb-8">
-                        <Quote className="absolute -top-6 -left-4 w-12 h-12 opacity-10 transform -scale-x-100" />
+                        {!isPureMode && <Quote className="absolute -top-6 -left-4 w-12 h-12 opacity-10 transform -scale-x-100" />}
+                        {isPureMode && <div className="text-4xl font-serif font-black mb-4">“</div>}
                         
                         {/* Quote Text */}
                         <p className={`font-serif leading-relaxed mb-6 font-bold relative z-10 drop-shadow-sm ${getTextClass(data.text.length)}`}>
@@ -182,22 +199,23 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
 
                         {/* Translation (if exists) - Visually Separated */}
                         {data.subText && (
-                            <div className="relative pl-4 border-l-2 border-white/30 py-1 mt-2">
+                            <div className={`relative pl-4 border-l-2 py-1 mt-2 ${isPureMode ? 'border-slate-300' : 'border-white/30'}`}>
                                 <p className="text-sm md:text-base opacity-90 font-light leading-relaxed tracking-wide">
                                     {data.subText}
                                 </p>
                             </div>
                         )}
                         
-                        <Quote className="absolute -bottom-6 -right-4 w-12 h-12 opacity-10" />
+                        {!isPureMode && <Quote className="absolute -bottom-6 -right-4 w-12 h-12 opacity-10" />}
+                        {isPureMode && <div className="text-4xl font-serif font-black mt-2 text-right">”</div>}
                     </div>
 
                     {/* Footer: Insight & Brand */}
-                    <div className="mt-auto pt-6 border-t border-white/15">
+                    <div className={`mt-auto pt-6 border-t ${isPureMode ? 'border-slate-200' : 'border-white/15'}`}>
                         {data.footer && (
                             <div className="mb-6">
                                 <div className="flex items-center gap-2 mb-2">
-                                     <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80"></span>
+                                     {!isPureMode && <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80"></span>}
                                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">核心洞见</span>
                                 </div>
                                 <p className="text-xs md:text-sm opacity-80 leading-relaxed text-justify font-medium">
@@ -208,26 +226,41 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                         
                         <div className="flex justify-between items-end opacity-50">
                              <div className="flex items-center gap-1.5">
-                                 <div className="w-5 h-5 border border-current rounded-full flex items-center justify-center">
-                                     <span className="text-[10px] font-bold">AI</span>
-                                 </div>
-                                 <span className="text-[10px] font-bold tracking-widest uppercase">BookMaster</span>
+                                 {isPureMode ? (
+                                    <div className="font-serif italic text-xs">{data.title}</div>
+                                 ) : (
+                                    <>
+                                        <div className="w-5 h-5 border border-current rounded-full flex items-center justify-center">
+                                            <span className="text-[10px] font-bold">AI</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold tracking-widest uppercase">BookMaster</span>
+                                    </>
+                                 )}
                              </div>
-                             <div className="text-[10px] tracking-widest">
-                                 智能拆书
-                             </div>
+                             {!isPureMode && <div className="text-[10px] tracking-widest">智能拆书</div>}
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Color Selector */}
-            <div className="mt-8 flex gap-3 justify-center">
+            <div className="mt-8 flex gap-3 justify-center items-center">
+                {/* Pure Mode Toggle */}
+                <button
+                    onClick={() => setIsPureMode(true)}
+                    className={`w-9 h-9 rounded-full shadow-md border bg-white flex items-center justify-center transition-all duration-300 ${isPureMode ? 'border-slate-800 scale-110 ring-2 ring-slate-200' : 'border-slate-200 hover:scale-105'}`}
+                    title="纯净版 (黑白)"
+                >
+                    <Circle className="w-4 h-4 text-slate-800" />
+                </button>
+                
+                <div className="w-px h-6 bg-slate-300 mx-2"></div>
+
                 {COLORS.map((c, i) => (
                     <button
                         key={c.id}
-                        onClick={() => setSelectedColorIdx(i)}
-                        className={`w-9 h-9 rounded-full shadow-lg border-2 transition-all duration-300 ${selectedColorIdx === i ? 'border-slate-800 scale-110 ring-2 ring-slate-300' : 'border-white hover:scale-105'}`}
+                        onClick={() => { setSelectedColorIdx(i); setIsPureMode(false); }}
+                        className={`w-9 h-9 rounded-full shadow-lg border-2 transition-all duration-300 ${!isPureMode && selectedColorIdx === i ? 'border-slate-800 scale-110 ring-2 ring-slate-300' : 'border-white hover:scale-105'}`}
                         style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
                         title={c.name}
                     />

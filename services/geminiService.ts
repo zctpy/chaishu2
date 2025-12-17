@@ -175,6 +175,57 @@ const podcastSchema: Schema = {
     required: ["title", "script"]
 };
 
+// --- Helper Functions ---
+
+export const createWavBlob = (audioBuffer: ArrayBuffer, sampleRate: number = 24000): Blob => {
+  const numOfChannels = 1;
+  const length = audioBuffer.byteLength;
+  const buffer = new ArrayBuffer(44 + length);
+  const view = new DataView(buffer);
+  
+  // Helper to write string
+  const writeString = (view: DataView, offset: number, string: string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+
+  // RIFF identifier
+  writeString(view, 0, 'RIFF');
+  // file length
+  view.setUint32(4, 36 + length, true);
+  // RIFF type
+  writeString(view, 8, 'WAVE');
+  // format chunk identifier
+  writeString(view, 12, 'fmt ');
+  // format chunk length
+  view.setUint32(16, 16, true);
+  // sample format (raw)
+  view.setUint16(20, 1, true);
+  // channel count
+  view.setUint16(22, numOfChannels, true);
+  // sample rate
+  view.setUint32(24, sampleRate, true);
+  // byte rate (sample rate * block align)
+  view.setUint32(28, sampleRate * 2, true);
+  // block align (channel count * bytes per sample)
+  view.setUint16(32, 2, true);
+  // bits per sample
+  view.setUint16(34, 16, true);
+  // data chunk identifier
+  writeString(view, 36, 'data');
+  // data chunk length
+  view.setUint32(40, length, true);
+  
+  // write the PCM samples
+  const pcmData = new Uint8Array(audioBuffer);
+  const dataView = new Uint8Array(buffer, 44);
+  dataView.set(pcmData);
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+
 // --- API Calls ---
 
 export const generateSummary = async (text: string, complexity: ComplexityLevel = 'NORMAL'): Promise<BookSummary> => {
@@ -224,6 +275,8 @@ export const generateQuotes = async (text: string, existingQuotes: Quote[] = [],
 };
 
 export const generateVocab = async (text: string, existingWords: VocabItem[] = [], complexity: ComplexityLevel = 'NORMAL'): Promise<VocabItem[]> => {
+  const existingList = existingWords.map(w => w.word).join(", ");
+  
   const prompt = `Identify exactly 10 core vocabulary words from the text.
   
   Requirements:
@@ -233,6 +286,8 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
   4. Meaning: Simple, concise, clear Chinese definition (max 10-15 characters). avoid lengthy explanations.
   5. Sentence: A SHORT, SIMPLE example sentence in **ENGLISH** (max 15 words) containing the word. Do NOT translate the sentence to Chinese.
   
+  ${existingList ? `CRITICAL: Do NOT include these words: ${existingList}` : ''}
+
   ${complexity === 'KIDS'
     ? "Selection Criteria: Choose words suitable for children."
     : "Selection Criteria: Choose core keywords or advanced words."}
@@ -244,7 +299,7 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
     config: {
       responseMimeType: "application/json",
       responseSchema: vocabSchema,
-      temperature: 0.85, 
+      temperature: 0.9, // Increase temperature for variety
       systemInstruction: getSystemInstruction(complexity, "Vocabulary builder"),
     }
   });
