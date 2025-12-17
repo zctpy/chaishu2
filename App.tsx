@@ -141,15 +141,25 @@ const App: React.FC = () => {
 
     try {
       // Pass complexity level to services
-      const summary = await geminiService.generateSummary(text, complexity);
+      const summaryPromise = geminiService.generateSummary(text, complexity);
       
-      await new Promise(r => setTimeout(r, 2000));
+      // Start generating Lu Xun review in parallel with analysis to have it ready
+      // We delay it slightly to prioritise summary generation if needed, but here we just fire it
+      const reviewPromise = geminiService.generateReview(text, 'LUXUN', 'CN');
+
+      const summary = await summaryPromise;
       
+      // Wait a bit before quotes to avoid rate limits if user is on free tier
+      await new Promise(r => setTimeout(r, 1000));
       const quotes = await geminiService.generateQuotes(text, [], complexity);
+
+      // Wait for review
+      const review = await reviewPromise;
 
       setAnalysisData({
         summary,
-        quotes
+        quotes,
+        bookReview: { ...review, language: 'CN' } // Default to CN for auto-generated Lu Xun review
       });
 
       setAppState(AppState.DASHBOARD);

@@ -65,8 +65,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Review Style State
-  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('GENTLE');
+  // Review Style State - Default to Lu Xun
+  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('LUXUN');
   const [reviewLanguage, setReviewLanguage] = useState<'CN' | 'EN'>('CN');
 
   // Quiz Language State
@@ -84,13 +84,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   const planRef = useRef<HTMLDivElement>(null);
   const vocabRef = useRef<HTMLDivElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
-
-  // Auto-generate Review on first visit
-  useEffect(() => {
-    if (activeTab === TabView.REVIEW && !data.bookReview && !isGeneratingReview) {
-        onGenerateReview('GENTLE', 'CN');
-    }
-  }, [activeTab]);
 
   const playHighQualitySpeech = async (text: string, id: string) => {
     if (playingAudio === id) {
@@ -467,7 +460,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       case TabView.REVIEW:
           const reviewStyles: {id: ReviewStyle, label: string}[] = [
-             { id: 'GENTLE', label: '温和推荐' },
+             { id: 'LUXUN', label: '鲁迅风格 (犀利)' },
+             { id: 'GENTLE', label: '中立评价 (客观)' },
              { id: 'CRITICAL', label: '批判性分析' },
              { id: 'ACADEMIC', label: '学术研讨' },
              { id: 'ESSAY', label: '随笔散文' },
@@ -494,11 +488,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                  </div>
                                  <select
                                     value={activeReviewStyle}
-                                    onChange={(e) => {
-                                        const style = e.target.value as ReviewStyle;
-                                        setActiveReviewStyle(style);
-                                        onGenerateReview(style, reviewLanguage);
-                                    }}
+                                    onChange={(e) => setActiveReviewStyle(e.target.value as ReviewStyle)}
                                     disabled={isGeneratingReview}
                                     className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
                                         theme.id === 'DARK_MODE'
@@ -522,11 +512,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                  </div>
                                  <select
                                     value={reviewLanguage}
-                                    onChange={(e) => {
-                                        const lang = e.target.value as 'CN' | 'EN';
-                                        setReviewLanguage(lang);
-                                        onGenerateReview(activeReviewStyle, lang);
-                                    }}
+                                    onChange={(e) => setReviewLanguage(e.target.value as 'CN' | 'EN')}
                                     disabled={isGeneratingReview}
                                     className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
                                         theme.id === 'DARK_MODE'
@@ -541,6 +527,20 @@ const Dashboard: React.FC<DashboardProps> = ({
                                      <ChevronDown className="w-4 h-4" />
                                  </div>
                              </div>
+
+                             {/* Generate Button */}
+                             <button
+                                onClick={() => onGenerateReview(activeReviewStyle, reviewLanguage)}
+                                disabled={isGeneratingReview}
+                                className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${
+                                    isGeneratingReview
+                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md hover:shadow-lg active:scale-95'
+                                }`}
+                             >
+                                 <RefreshCw className={`w-4 h-4 ${isGeneratingReview ? 'animate-spin' : ''}`} />
+                                 {isGeneratingReview ? '生成中...' : '生成书评'}
+                             </button>
 
                              {/* Action Buttons */}
                              {!isGeneratingReview && data.bookReview && (

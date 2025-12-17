@@ -97,7 +97,7 @@ const vocabSchema: Schema = {
       ipa: { type: Type.STRING, description: "Standard IPA pronunciation" },
       pos: { type: Type.STRING, description: "Part of speech (e.g., n., v., adj.)" },
       meaning: { type: Type.STRING, description: "Simple, concise Chinese definition" },
-      sentence: { type: Type.STRING, description: "A short, simple example sentence using this word." }
+      sentence: { type: Type.STRING, description: "A SHORT, SIMPLE example sentence in ENGLISH using this word." }
     },
     required: ["word", "ipa", "pos", "meaning", "sentence"]
   }
@@ -231,10 +231,10 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
   2. IPA: Provide accurate, standard International Phonetic Alphabet (e.g., /wɜːrd/).
   3. Pos: Provide standard abbreviation (n., v., adj., etc.).
   4. Meaning: Simple, concise, clear Chinese definition (max 10-15 characters). avoid lengthy explanations.
-  5. Sentence: A SHORT, SIMPLE example sentence (max 15 words) containing the word.
+  5. Sentence: A SHORT, SIMPLE example sentence in **ENGLISH** (max 15 words) containing the word. Do NOT translate the sentence to Chinese.
   
   ${complexity === 'KIDS'
-    ? "Selection Criteria: Choose words suitable for children. Explanation AND Sentence must be very simple and fun."
+    ? "Selection Criteria: Choose words suitable for children."
     : "Selection Criteria: Choose core keywords or advanced words."}
   
   Text snippet: ${text.substring(0, 25000)}...`;
@@ -323,7 +323,20 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
   // Determine specific prompts based on style
   let styleInstruction = `Style: ${style}.`;
   
-  if (style === 'LIBAI') {
+  if (style === 'LUXUN') {
+      styleInstruction = `Role: You are Lu Xun (鲁迅).
+      Task: Write a biting, socially critical book review using semi-classical vernacular (半文半白) style typical of Lu Xun's essays (杂文).
+      - Tone: Cynical, sharp, observing the "cannibalism" (吃人) or numbness of society, but holding a torch for the future.
+      - Use metaphors like "iron house", "passers-by".
+      - Critique the book's value to the current era and human nature.
+      - 'titles': Must be in Lu Xun's essay title style (e.g., "热风", "而已集" style).
+      - 'oneSentenceSummary': A sharp, memorable aphorism.`;
+  } else if (style === 'GENTLE') {
+      styleInstruction = `Role: Objective Critic.
+      Task: Write a NEUTRAL, OBJECTIVE, and BALANCED summary and review. 
+      - Tone: Professional, calm, unbiased. Focus on facts, main arguments, and structure.
+      - Avoid excessive praise or harsh criticism.`;
+  } else if (style === 'LIBAI') {
       styleInstruction = `Role: You are the poet Li Bai (李白). 
       Task: Write a *short* book review in the form of Classical Chinese Poetry (古诗).
       - Constraint: The poem must be concise, strictly under 10 lines.
@@ -347,7 +360,7 @@ export const generateReview = async (text: string, style: ReviewStyle, language:
     config: {
       responseMimeType: "application/json",
       responseSchema: reviewSchema,
-      temperature: 0.9, // Higher temp for creative writing
+      temperature: style === 'LUXUN' || style === 'LIBAI' ? 0.95 : 0.7, // Higher temp for creative personas
     }
   });
 

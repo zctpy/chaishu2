@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, PhoneOff, User, Bot, Volume2, Sparkles, AlertCircle } from 'lucide-react';
+import { Mic, PhoneOff, User, Bot, Volume2, Sparkles, AlertCircle, Headphones } from 'lucide-react';
 import { createLiveSession, decodePCM } from '../services/geminiService';
 import { LiveServerMessage, Blob } from '@google/genai';
 import { Theme } from '../types';
@@ -15,12 +15,10 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
   const [isTalking, setIsTalking] = useState(false); // AI is talking
   const [error, setError] = useState<string | null>(null);
   
-  const videoRef = useRef<HTMLVideoElement>(null); // For future video expansion, current audio only
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
-  const audioQueueRef = useRef<AudioBuffer[]>([]);
-  const isPlayingRef = useRef(false);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const nextStartTimeRef = useRef<number>(0);
 
   // Clean up on unmount
   useEffect(() => {
@@ -44,58 +42,69 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
     }
 
     sessionPromiseRef.current = null;
+    nextStartTimeRef.current = 0;
   };
 
   const handleConnect = async () => {
     setError(null);
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // 1. Force 16kHz Sample Rate for Input
+        // Most modern browsers support setting sampleRate. This handles resampling natively and cleaner than JS.
+        const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
+            sampleRate: 16000, 
+            latencyHint: 'interactive' 
+        });
         
-        // Setup Audio Contexts
-        const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-        const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+        // 2. Output Context (Gemini usually returns 24kHz, we match it)
+        const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
+            sampleRate: 24000 
+        });
+        
         inputAudioContextRef.current = inputCtx;
         outputAudioContextRef.current = outputCtx;
 
+        // 3. Get User Media with strict constraints
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+                channelCount: 1,
+                sampleRate: 16000, // Try to request hardware 16k
+                echoCancellation: true,
+                autoGainControl: true,
+                noiseSuppression: true,
+            } 
+        });
+
         const systemInstruction = `
-        You are an expert reading coach and literary companion. 
-        You are discussing the book with the user.
+        You are an expert reading coach.
         
         BOOK CONTEXT:
-        ${bookContext.substring(0, 10000)}...
+        ${bookContext.substring(0, 5000)}...
 
-        ROLE:
-        - Be friendly, encouraging, and insightful.
-        - Discuss the plot, themes, characters, or specific quotes.
-        - If the user asks about something else, politely guide them back to the book.
-        - Keep your responses concise and conversational.
-        
-        CRITICAL LANGUAGE RULES:
-        1. **STRICTLY SPEAK ONLY Standard Mandarin Chinese (Putonghua) OR English.**
-        2. **NEVER** speak Cantonese, regional dialects, or mixed languages.
-        3. If you hear gibberish or noise, simply say "请再说一遍" (Please say that again) in Mandarin or wait.
-        4. If the user speaks Chinese, reply in clear Standard Mandarin.
-        5. If the user speaks English, reply in English.
-        6. Start the conversation by greeting the user in Mandarin.
+        INSTRUCTIONS:
+        1. **Speak ONLY in Mandarin Chinese (Putonghua).** 
+        2. Even if the user speaks English, answer in Chinese unless explicitly asked to teach English.
+        3. Keep responses SHORT, encouraging, and conversational.
+        4. Do NOT make up facts. Use the book context.
         `;
 
-        let nextStartTime = 0;
+        nextStartTimeRef.current = 0;
 
-        // Use the updated createLiveSession helper which separates callbacks correctly
         const sessionPromise = createLiveSession(systemInstruction, {
             callbacks: {
                 onopen: async () => {
                     console.log("Live Session Opened");
                     setIsConnected(true);
                     
-                    // Start Input Streaming
                     const source = inputCtx.createMediaStreamSource(stream);
+                    // Buffer size 4096 at 16k is approx 256ms latency, good balance for chunking
                     const scriptProcessor = inputCtx.createScriptProcessor(4096, 1, 1);
                     
                     scriptProcessor.onaudioprocess = (e) => {
                         const inputData = e.inputBuffer.getChannelData(0);
+                        // Since inputCtx is strictly 16000, inputData is already 16kHz.
+                        // We can send it directly without manual downsampling logic which causes artifacts.
                         const pcmBlob = createBlob(inputData);
-                        // Send data when session is ready
+                        
                         sessionPromiseRef.current?.then(session => {
                             session.sendRealtimeInput({ media: pcmBlob });
                         });
@@ -111,21 +120,21 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
                         try {
                             const audioBuffer = await decodePCM(outputCtx, decode(base64Audio), 24000);
                             
-                            // Schedule Audio
                             const source = outputCtx.createBufferSource();
                             source.buffer = audioBuffer;
                             source.connect(outputCtx.destination);
                             
                             const now = outputCtx.currentTime;
-                            // Ensure nextStartTime is at least now
-                            nextStartTime = Math.max(nextStartTime, now);
+                            // Gapless playback logic
+                            if (nextStartTimeRef.current < now) {
+                                nextStartTimeRef.current = now;
+                            }
                             
-                            source.start(nextStartTime);
-                            nextStartTime += audioBuffer.duration;
+                            source.start(nextStartTimeRef.current);
+                            nextStartTimeRef.current += audioBuffer.duration;
                             
                             source.onended = () => {
-                                // Simple check: if current time > nextStartTime (with buffer), we are done talking
-                                if (outputCtx.currentTime >= nextStartTime - 0.1) {
+                                if (outputCtx.currentTime >= nextStartTimeRef.current - 0.1) {
                                     setIsTalking(false);
                                 }
                             };
@@ -136,23 +145,18 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
 
                     if (message.serverContent?.interrupted) {
                         console.log("Interrupted");
-                        nextStartTime = 0;
+                        nextStartTimeRef.current = outputCtx.currentTime;
                         setIsTalking(false);
                     }
                 },
                 onclose: () => {
                     console.log("Session Closed");
-                    setIsConnected(false);
-                    setIsTalking(false);
+                    disconnect();
                 },
                 onerror: (e: any) => {
                     console.error("Live Session Error", e);
-                    setError("服务暂时不可用或连接中断，请稍后重试。");
-                    setIsConnected(false);
-                    setIsTalking(false);
-                    // Force cleanup
-                    if (inputAudioContextRef.current) inputAudioContextRef.current.close();
-                    if (outputAudioContextRef.current) outputAudioContextRef.current.close();
+                    setError("连接中断，请刷新重试。");
+                    disconnect();
                 }
             }
         });
@@ -162,21 +166,25 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
     } catch (e: any) {
         console.error("Connection Failed", e);
         if (e.name === 'NotAllowedError' || e.message?.includes('Permission denied')) {
-             setError("无法访问麦克风。请在浏览器设置中允许此网站使用麦克风。");
+             setError("请允许访问麦克风。");
         } else {
-             setError("连接初始化失败，请检查网络或重试。");
+             setError("无法初始化音频设备，请尝试刷新页面。");
         }
+        disconnect();
     }
   };
 
-  // Helpers for Audio Data (Local to avoid export mess if not in service)
+  // Helpers
   const createBlob = (data: Float32Array): Blob => {
     const l = data.length;
     const int16 = new Int16Array(l);
     for (let i = 0; i < l; i++) {
-        int16[i] = data[i] * 32768;
+        // Simple clipping
+        let s = Math.max(-1, Math.min(1, data[i]));
+        // Convert Float32 (-1.0 to 1.0) to Int16 (-32768 to 32767)
+        int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
     }
-    // Encode Int16 to Base64 manually string build
+    
     let binary = '';
     const bytes = new Uint8Array(int16.buffer);
     const len = bytes.byteLength;
@@ -218,14 +226,22 @@ const LiveCoach: React.FC<LiveCoachProps> = ({ bookContext, theme }) => {
                 AI 阅读教练
             </h2>
             
-            <p className={`text-lg mb-12 max-w-md mx-auto ${theme.id === 'DARK_MODE' ? 'text-slate-400' : 'text-slate-600'}`}>
+            <p className={`text-lg mb-8 max-w-md mx-auto ${theme.id === 'DARK_MODE' ? 'text-slate-400' : 'text-slate-600'}`}>
                 {!isConnected 
                   ? "戴上耳机，点击下方按钮，开始与 AI 教练探讨书中的精彩内容。" 
                   : "正在聆听中... 您可以直接通过语音提问或发表感想。"}
             </p>
 
+            {/* Headphone Advice */}
+            {!isConnected && !error && (
+                <div className="mb-8 flex items-center justify-center gap-2 text-sm text-slate-500 bg-slate-100/50 px-4 py-2 rounded-full mx-auto w-fit">
+                    <Headphones className="w-4 h-4" />
+                    <span>建议佩戴耳机以获得最佳体验（防止回音）</span>
+                </div>
+            )}
+
             {error && (
-                <div className="mb-8 flex items-center gap-2 justify-center text-red-500 bg-red-50 px-4 py-2 rounded-lg">
+                <div className="mb-8 flex items-center gap-2 justify-center text-red-500 bg-red-50 px-4 py-2 rounded-lg animate-fadeIn">
                     <AlertCircle className="w-5 h-5" />
                     <span>{error}</span>
                 </div>
