@@ -143,9 +143,8 @@ const App: React.FC = () => {
       // Pass complexity level to services
       const summaryPromise = geminiService.generateSummary(text, complexity);
       
-      // Start generating Lu Xun review in parallel with analysis to have it ready
-      // We delay it slightly to prioritise summary generation if needed, but here we just fire it
-      const reviewPromise = geminiService.generateReview(text, 'LUXUN', 'CN');
+      // Changed initial style to SUDONGPO as per user request
+      const reviewPromise = geminiService.generateReview(text, 'SUDONGPO', 'CN');
 
       const summary = await summaryPromise;
       
@@ -159,7 +158,7 @@ const App: React.FC = () => {
       setAnalysisData({
         summary,
         quotes,
-        bookReview: { ...review, language: 'CN' } // Default to CN for auto-generated Lu Xun review
+        bookReview: { ...review, language: 'CN' } 
       });
 
       setAppState(AppState.DASHBOARD);
@@ -177,9 +176,6 @@ const App: React.FC = () => {
 
   const loadSecondaryData = async (text: string) => {
     try {
-      // NOTE: Vocab generation removed from automatic flow as per request
-      // Users will now trigger it manually
-
       await new Promise(r => setTimeout(r, 1500));
       const quiz = await geminiService.generateQuiz(text, [], complexity);
       setAnalysisData(prev => ({ ...prev, quiz }));
@@ -307,7 +303,6 @@ const App: React.FC = () => {
              </div>
         ) : (
              <div className="absolute inset-0 bg-slate-50">
-                {/* Colorful blobs for light mode */}
                 <div className={`absolute top-0 -left-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-yellow-300' : 'bg-purple-300'}`}></div>
                 <div className={`absolute top-0 -right-4 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000 ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-pink-300' : 'bg-yellow-300'}`}></div>
                 <div className={`absolute -bottom-32 left-20 w-96 h-96 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000 ${currentThemeId === 'KIDS_PLAYFUL' ? 'bg-blue-300' : 'bg-pink-300'}`}></div>
@@ -315,7 +310,6 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Header - Only visible on Upload screen */}
       {appState !== AppState.DASHBOARD && (
         <header className="fixed top-0 inset-x-0 z-40 h-20 flex items-center justify-between px-8 bg-white/30 backdrop-blur-md border-b border-white/20">
           <div className="flex items-center gap-3">
@@ -327,7 +321,6 @@ const App: React.FC = () => {
             </span>
           </div>
           
-          {/* Complexity Toggle on Landing Page */}
            <div className="flex items-center gap-1 bg-white/40 p-1.5 rounded-full border border-white/50 backdrop-blur-sm shadow-sm">
               <button 
                 onClick={() => setComplexity('NORMAL')}
@@ -345,7 +338,6 @@ const App: React.FC = () => {
         </header>
       )}
 
-      {/* Main Content */}
       <main className="flex-1 relative">
         {appState === AppState.UPLOAD && (
           <div className="pt-20">

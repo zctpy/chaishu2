@@ -15,7 +15,6 @@ import PodcastView from './PodcastView';
 import LiveCoach from './LiveCoach';
 import { generateSpeech, decodePCM } from '../services/geminiService';
 
-// Ensure html2canvas is typed
 declare global {
   interface Window {
     html2canvas: any;
@@ -62,25 +61,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   
-  // Mobile Sidebar State
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Review Style State - Default to Lu Xun
-  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('LUXUN');
+  // Set SUDONGPO as default style
+  const [activeReviewStyle, setActiveReviewStyle] = useState<ReviewStyle>('SUDONGPO');
   const [reviewLanguage, setReviewLanguage] = useState<'CN' | 'EN'>('CN');
 
-  // Quiz Language State
   const [quizLanguage, setQuizLanguage] = useState<'CN' | 'EN'>('CN');
 
-  // Audio playing logic
   const [playingAudio, setPlayingAudio] = useState<string | null>(null); 
   const audioContextRef = React.useRef<AudioContext | null>(null);
   const audioBufferCache = React.useRef<Map<string, AudioBuffer>>(new Map());
 
-  // Quiz State
   const [selectedAnswers, setSelectedAnswers] = useState<{[key:number]: number}>({});
 
-  // Refs for Exporting Images
   const planRef = useRef<HTMLDivElement>(null);
   const vocabRef = useRef<HTMLDivElement>(null);
   const reviewRef = useRef<HTMLDivElement>(null);
@@ -105,15 +99,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        source.playbackRate.value = 1.2; // Speed up playback slightly
+        source.playbackRate.value = 1.2; 
         source.start(0);
         source.onended = () => setPlayingAudio(null);
     } catch (e) { console.error(e); setPlayingAudio(null); }
   };
 
   const openShareModal = (data: ShareData) => { setShareData(data); setShareModalOpen(true); };
-
-  // --- Export Helpers ---
 
   const handleExportImage = async (ref: React.RefObject<HTMLDivElement | null>, filename: string) => {
     if (!ref.current || !window.html2canvas) return;
@@ -202,8 +194,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     alert('书评内容已复制到剪贴板');
   };
 
-  // --- Render Helpers ---
-
   const tabs = [
     { id: TabView.SUMMARY, label: '全书总结', icon: BookOpen },
     { id: TabView.READER, label: '双语阅读', icon: Headphones }, 
@@ -213,11 +203,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     { id: TabView.PRACTICE, label: '深度测验', icon: CheckSquare },
     { id: TabView.PLAN, label: '行动计划', icon: Calendar },
     { id: TabView.PODCAST, label: '生成播客', icon: Mic }, 
-    { id: TabView.COACH, label: '语音教练', icon: MessageSquare }, // Added Live Coach Tab
+    { id: TabView.COACH, label: '语音教练', icon: MessageSquare }, 
   ];
 
   const renderContent = () => {
-    // Style override wrapper based on complexity
     const containerClass = `animate-fadeIn max-w-6xl mx-auto pb-20 ${complexity === 'KIDS' ? 'font-comic' : ''}`;
     const headingClass = `text-4xl md:text-5xl font-black mb-8 tracking-tight ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-white' : 'text-slate-800'}`;
     const cardBaseClass = `${theme.cardClass} rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden transition-all duration-300`;
@@ -227,7 +216,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         return (
           <div className={containerClass}>
             <div className={cardBaseClass}>
-               {/* Improved Title Typography */}
                <div className="mb-12 text-center md:text-left border-b border-slate-100 dark:border-slate-700 pb-10">
                    <h1 className={`text-5xl md:text-7xl font-black mb-6 tracking-tighter leading-[1.1] drop-shadow-sm ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-white' : 'text-slate-900'}`}>
                        {data.summary?.title}
@@ -239,7 +227,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                    )}
                </div>
 
-               {/* Improved Summary Text */}
                <div className={`prose prose-lg md:prose-xl max-w-none mb-16 px-2 md:px-4 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'prose-invert text-slate-300' : 'text-slate-600'}`}>
                    {complexity === 'KIDS' && <div className="text-4xl mb-6 text-center animate-bounce">🧸 📖 ✨</div>}
                    <div className="leading-loose font-serif-sc tracking-wide text-justify">
@@ -247,7 +234,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                    </div>
                </div>
                
-               {/* Chapters Optimized Typography */}
                <div className="mt-16 grid gap-12">
                    <div className="flex items-center gap-4 mb-4 pl-2">
                        <div className="h-10 w-1.5 bg-emerald-500 rounded-full"></div>
@@ -259,20 +245,15 @@ const Dashboard: React.FC<DashboardProps> = ({
                    <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-2">
                        {data.summary?.chapters.map((c, i) => (
                            <div key={i} className={`p-10 rounded-[2rem] border transition-all duration-300 hover:-translate-y-2 group relative overflow-hidden ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50/60 border-slate-200/50 hover:bg-white hover:shadow-2xl hover:shadow-emerald-900/10'}`}>
-                               
-                               {/* Decorative background number */}
                                <div className={`absolute -right-6 -top-10 text-[140px] font-black opacity-[0.04] select-none pointer-events-none transition-transform group-hover:scale-110 duration-500 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>
                                    {i + 1}
                                </div>
-
                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-6 ${theme.id === 'DARK_MODE' ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-100 text-emerald-800'}`}>
                                    Chapter {i+1}
                                </div>
-
                                <h3 className={`text-2xl md:text-3xl font-bold mb-6 leading-tight ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-100' : 'text-slate-900'}`}>
                                    {c.chapterTitle}
                                </h3>
-                               
                                <div className={`text-lg leading-loose font-serif-sc text-justify ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-slate-400' : 'text-slate-600'}`}>
                                    {c.summary}
                                </div>
@@ -326,27 +307,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   <Sparkles className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                                   <span>{q.reason}</span>
                               </div>
-                              
                               <div className="absolute top-8 right-8 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button 
-                                    onClick={() => openShareModal({ 
-                                        type: 'QUOTE', 
-                                        title: data.summary?.title || '', 
-                                        text: q.text, 
-                                        subText: q.translation, 
-                                        footer: q.reason,
-                                        author: data.summary?.author 
-                                    })} 
-                                    className="p-3 rounded-full hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 bg-white shadow-md border border-slate-100 transition-colors"
-                                    title="生成金句卡片"
-                                  >
+                                  <button onClick={() => openShareModal({ type: 'QUOTE', title: data.summary?.title || '', text: q.text, subText: q.translation, footer: q.reason, author: data.summary?.author })} className="p-3 rounded-full hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 bg-white shadow-md border border-slate-100 transition-colors" title="生成金句卡片">
                                       <Share2 className="w-4 h-4" />
                                   </button>
-                                  <button 
-                                    onClick={() => playHighQualitySpeech(q.text, `q-${i}`)} 
-                                    className="p-3 rounded-full hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 bg-white shadow-md border border-slate-100 transition-colors"
-                                    title="朗读"
-                                  >
+                                  <button onClick={() => playHighQualitySpeech(q.text, `q-${i}`)} className="p-3 rounded-full hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 bg-white shadow-md border border-slate-100 transition-colors" title="朗读">
                                       {playingAudio === `q-${i}` ? <span className="animate-spin text-xs">⏳</span> : <Volume2 className="w-4 h-4"/>}
                                   </button>
                               </div>
@@ -375,7 +340,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                         </div>
                       )}
                   </div>
-                  
                   {!data.vocab ? (
                       isRefreshingVocab ? (
                         <div className="flex flex-col items-center justify-center p-20 opacity-60">
@@ -387,64 +351,36 @@ const Dashboard: React.FC<DashboardProps> = ({
                              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
                                 <Languages className="w-10 h-10 text-slate-400" />
                              </div>
-                             <h3 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
-                                 提取核心词汇
-                             </h3>
-                             <p className={`text-lg mb-8 max-w-md ${theme.id === 'DARK_MODE' ? 'text-slate-400' : 'text-slate-500'}`}>
-                                 AI 将智能识别文中关键词，提供 IPA 音标、词性及例句，助您深度掌握专业术语。
-                             </p>
-                             <button 
-                               onClick={() => onRefreshVocab([])}
-                               className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                             >
-                                <Sparkles className="w-5 h-5" />
-                                开始生成
+                             <h3 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>提取核心词汇</h3>
+                             <p className={`text-lg mb-8 max-w-md ${theme.id === 'DARK_MODE' ? 'text-slate-400' : 'text-slate-500'}`}>AI 将智能识别文中关键词，提供 IPA 音标、词性及例句。</p>
+                             <button onClick={() => onRefreshVocab([])} className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-colors shadow-lg shadow-emerald-500/20 flex items-center gap-2">
+                                <Sparkles className="w-5 h-5" /> 开始生成
                              </button>
                         </div>
                       )
                   ) : (
                       <div ref={vocabRef} className={`rounded-[2rem] overflow-hidden border shadow-sm p-2 ${theme.id === 'DARK_MODE' ? 'bg-[#1e293b] border-slate-700' : 'bg-white border-slate-100'}`}>
-                           {/* Improved Vocab Layout using Flex Row Cards */}
                            <div className="flex flex-col divide-y divide-slate-100 dark:divide-slate-700">
                                {data.vocab.map((v, i) => (
                                    <div key={i} className={`p-6 flex flex-col md:flex-row items-start md:items-center gap-6 transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-800/50' : 'hover:bg-slate-50'}`}>
-                                       
-                                       {/* Word & IPA */}
                                        <div className="md:w-1/4 shrink-0">
                                             <div className="flex items-center gap-3 mb-1">
-                                                <span className={`text-2xl font-black tracking-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
-                                                    {v.word}
-                                                </span>
-                                                <button 
-                                                    onClick={() => playHighQualitySpeech(v.word, `v-${i}`)} 
-                                                    className={`p-1.5 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-600'}`}
-                                                >
+                                                <span className={`text-2xl font-black tracking-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{v.word}</span>
+                                                <button onClick={() => playHighQualitySpeech(v.word, `v-${i}`)} className={`p-1.5 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'bg-slate-100 hover:bg-emerald-100 text-slate-400 hover:text-emerald-600'}`}>
                                                     {playingAudio === `v-${i}` ? <span className="animate-spin text-xs">⏳</span> : <Volume2 className="w-4 h-4" />}
                                                 </button>
                                             </div>
                                             <div className="flex items-center gap-2 text-sm text-slate-400 font-mono">
                                                 <span>{v.ipa}</span>
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>
-                                                    {v.pos}
-                                                </span>
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>{v.pos}</span>
                                             </div>
                                        </div>
-                                       
-                                       {/* Meaning & Sentence */}
                                        <div className="flex-1">
-                                            <p className={`text-lg leading-relaxed mb-3 ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>
-                                                {v.meaning}
-                                            </p>
-                                            {/* Example Sentence Display */}
+                                            <p className={`text-lg leading-relaxed mb-3 ${theme.id === 'DARK_MODE' ? 'text-slate-300' : 'text-slate-700'}`}>{v.meaning}</p>
                                             {v.sentence && (
                                                 <div className={`p-3 rounded-xl text-sm italic border-l-4 ${theme.id === 'DARK_MODE' ? 'bg-slate-800/50 border-emerald-500/50 text-slate-400' : 'bg-slate-100 border-emerald-300 text-slate-600'}`}>
-                                                    <span className="font-bold not-italic mr-2 opacity-70">Ex:</span> 
-                                                    "{v.sentence}"
-                                                    <button 
-                                                        onClick={() => playHighQualitySpeech(v.sentence, `vs-${i}`)} 
-                                                        className={`ml-2 inline-flex align-middle p-1 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'hover:bg-emerald-200 text-slate-400 hover:text-emerald-700'}`}
-                                                        title="Play Sentence"
-                                                    >
+                                                    <span className="font-bold not-italic mr-2 opacity-70">Ex:</span> "{v.sentence}"
+                                                    <button onClick={() => playHighQualitySpeech(v.sentence, `vs-${i}`)} className={`ml-2 inline-flex align-middle p-1 rounded-full transition-colors ${theme.id === 'DARK_MODE' ? 'hover:bg-slate-700 text-slate-500' : 'hover:bg-emerald-200 text-slate-400 hover:text-emerald-700'}`} title="Play Sentence">
                                                         {playingAudio === `vs-${i}` ? <span className="animate-spin text-[10px]">⏳</span> : <Volume2 className="w-3 h-3" />}
                                                     </button>
                                                 </div>
@@ -460,13 +396,14 @@ const Dashboard: React.FC<DashboardProps> = ({
 
       case TabView.REVIEW:
           const reviewStyles: {id: ReviewStyle, label: string}[] = [
-             { id: 'LUXUN', label: '鲁迅风格 (犀利)' },
+             { id: 'SUDONGPO', label: '苏东坡风格 (默认)' },
+             { id: 'RUSSELL', label: '罗素风格 (逻辑分析)' },
+             { id: 'AUSTEN', label: '简·奥斯汀风格 (优雅)' },
+             { id: 'MAUGHAM', label: '毛姆风格 (世俗)' },
+             { id: 'NABOKOV', label: '纳博科夫风格 (华丽)' },
+             { id: 'LUXUN', label: '鲁迅风格 (优化版)' },
              { id: 'GENTLE', label: '中立评价 (客观)' },
              { id: 'CRITICAL', label: '批判性分析' },
-             { id: 'ACADEMIC', label: '学术研讨' },
-             { id: 'ESSAY', label: '随笔散文' },
-             { id: 'NIETZSCHE', label: '尼采风格' },
-             { id: 'SUDONGPO', label: '苏东坡风格' },
              { id: 'LIBAI', label: '李白风格 (诗歌)' },
              { id: 'MARKTWAIN', label: '马克·吐温风格 (幽默)' }
           ];
@@ -474,28 +411,14 @@ const Dashboard: React.FC<DashboardProps> = ({
           return (
              <div className={containerClass}>
                  <div className={`${cardBaseClass} min-h-[600px]`}>
-                     {/* Header with Controls ... (Same as before) */}
                      <div className="mb-10 flex flex-col items-center justify-center sticky top-0 bg-white/60 backdrop-blur-md py-6 z-10 -mx-10 px-10 border-b border-white/20">
-                         <h2 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
-                             深度书评生成
-                         </h2>
-                         
+                         <h2 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>深度书评生成</h2>
                          <div className="flex flex-wrap items-center justify-center gap-3">
-                             {/* Style Selector */}
                              <div className="relative inline-flex items-center">
                                  <div className="absolute left-4 pointer-events-none text-emerald-600">
                                      <Sparkles className="w-4 h-4" />
                                  </div>
-                                 <select
-                                    value={activeReviewStyle}
-                                    onChange={(e) => setActiveReviewStyle(e.target.value as ReviewStyle)}
-                                    disabled={isGeneratingReview}
-                                    className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
-                                        theme.id === 'DARK_MODE'
-                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
-                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
-                                    }`}
-                                 >
+                                 <select value={activeReviewStyle} onChange={(e) => setActiveReviewStyle(e.target.value as ReviewStyle)} disabled={isGeneratingReview} className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'}`}>
                                      {reviewStyles.map(s => (
                                          <option key={s.id} value={s.id}>{s.label}</option>
                                      ))}
@@ -504,22 +427,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                      <ChevronDown className="w-4 h-4" />
                                  </div>
                              </div>
-
-                             {/* Language Selector */}
                              <div className="relative inline-flex items-center">
                                  <div className="absolute left-4 pointer-events-none text-blue-600">
                                      <Languages className="w-4 h-4" />
                                  </div>
-                                 <select
-                                    value={reviewLanguage}
-                                    onChange={(e) => setReviewLanguage(e.target.value as 'CN' | 'EN')}
-                                    disabled={isGeneratingReview}
-                                    className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${
-                                        theme.id === 'DARK_MODE'
-                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
-                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:shadow-md'
-                                    }`}
-                                 >
+                                 <select value={reviewLanguage} onChange={(e) => setReviewLanguage(e.target.value as 'CN' | 'EN')} disabled={isGeneratingReview} className={`appearance-none pl-10 pr-10 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/50 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:border-blue-300 hover:shadow-md'}`}>
                                      <option value="CN">中文 (Chinese)</option>
                                      <option value="EN">English</option>
                                  </select>
@@ -527,60 +439,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                                      <ChevronDown className="w-4 h-4" />
                                  </div>
                              </div>
-
-                             {/* Generate Button */}
-                             <button
-                                onClick={() => onGenerateReview(activeReviewStyle, reviewLanguage)}
-                                disabled={isGeneratingReview}
-                                className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${
-                                    isGeneratingReview
-                                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                    : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md hover:shadow-lg active:scale-95'
-                                }`}
-                             >
-                                 <RefreshCw className={`w-4 h-4 ${isGeneratingReview ? 'animate-spin' : ''}`} />
-                                 {isGeneratingReview ? '生成中...' : '生成书评'}
+                             <button onClick={() => onGenerateReview(activeReviewStyle, reviewLanguage)} disabled={isGeneratingReview} className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${isGeneratingReview ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 text-white hover:bg-emerald-600 shadow-md hover:shadow-lg active:scale-95'}`}>
+                                 <RefreshCw className={`w-4 h-4 ${isGeneratingReview ? 'animate-spin' : ''}`} /> {isGeneratingReview ? '生成中...' : '生成书评'}
                              </button>
-
-                             {/* Action Buttons */}
                              {!isGeneratingReview && data.bookReview && (
                                  <div className="flex gap-2">
-                                     <button 
-                                       onClick={handleCopyReview}
-                                       className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
-                                          theme.id === 'DARK_MODE'
-                                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                          : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
-                                       }`}
-                                       title="复制书评内容"
-                                     >
+                                     <button onClick={handleCopyReview} className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'}`} title="复制书评内容">
                                          <Copy className="w-4 h-4" />
                                      </button>
-                                     <button 
-                                       onClick={() => handleExportImage(reviewRef, 'book_review')}
-                                       className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${
-                                          theme.id === 'DARK_MODE'
-                                          ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                                          : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'
-                                       }`}
-                                       title="导出书评图片"
-                                     >
+                                     <button onClick={() => handleExportImage(reviewRef, 'book_review')} className={`p-3 rounded-2xl border shadow-sm transition-all hover:scale-105 active:scale-95 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-md'}`} title="导出书评图片">
                                          <ImageIcon className="w-4 h-4" />
                                      </button>
                                  </div>
                              )}
                          </div>
                      </div>
-                     
-                     {/* Loading State */}
                      {isGeneratingReview && (
                          <div className="flex flex-col items-center justify-center py-24 animate-fadeIn">
                              <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
                              <p className="text-emerald-600 font-bold text-lg animate-pulse">AI 正在深度思考并撰写评论...</p>
                          </div>
                      )}
-
-                     {/* Empty State */}
                      {!isGeneratingReview && !data.bookReview && (
                          <div className="text-center py-20 opacity-40">
                              <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -589,34 +468,21 @@ const Dashboard: React.FC<DashboardProps> = ({
                              <p className="text-lg font-medium text-slate-400">正在初始化书评...</p>
                          </div>
                      )}
-
-                     {/* Content State */}
                      {!isGeneratingReview && data.bookReview && (
                          <div ref={reviewRef} className="animate-fadeIn max-w-3xl mx-auto p-4 bg-transparent">
                              <div className="mb-12 text-center">
                                  <h1 className={`text-3xl md:text-5xl font-black mb-10 font-serif leading-tight ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-900'}`}>
                                      {data.bookReview.titles[0]}
                                  </h1>
-                                 
                                  <div className="relative inline-block px-10 py-8 rounded-3xl bg-slate-50 border border-slate-100">
                                      <Quote className="w-10 h-10 text-emerald-200 absolute -top-4 -left-4 transform -scale-x-100" />
-                                     <p className="text-xl italic font-serif text-slate-700 relative z-10 leading-relaxed">
-                                         {data.bookReview.oneSentenceSummary}
-                                     </p>
+                                     <p className="text-xl italic font-serif text-slate-700 relative z-10 leading-relaxed">{data.bookReview.oneSentenceSummary}</p>
                                      <Quote className="w-10 h-10 text-emerald-200 absolute -bottom-4 -right-4" />
                                  </div>
                              </div>
-
-                             <article className={`prose prose-lg max-w-none mb-12 text-justify
-                                 ${theme.id === 'DARK_MODE' ? 'prose-invert' : 'prose-slate'}
-                                 prose-headings:font-bold prose-headings:tracking-tight
-                                 prose-p:leading-loose prose-p:text-slate-600
-                                 prose-blockquote:border-l-4 prose-blockquote:border-emerald-500 prose-blockquote:bg-emerald-50/50 prose-blockquote:py-4 prose-blockquote:px-8 prose-blockquote:rounded-r-2xl prose-blockquote:not-italic
-                             `}>
+                             <article className={`prose prose-lg max-w-none mb-12 text-justify ${theme.id === 'DARK_MODE' ? 'prose-invert' : 'prose-slate'} prose-headings:font-bold prose-headings:tracking-tight prose-p:leading-loose prose-p:text-slate-600 prose-blockquote:border-l-4 prose-blockquote:border-emerald-500 prose-blockquote:bg-emerald-50/50 prose-blockquote:py-4 prose-blockquote:px-8 prose-blockquote:rounded-r-2xl prose-blockquote:not-italic`}>
                                  <ReactMarkdown>{data.bookReview.contentMarkdown}</ReactMarkdown>
                              </article>
-
-                             {/* Explicit Check for Self Checklist */}
                              {data.bookReview.selfCheckList && data.bookReview.selfCheckList.length > 0 && (
                                  <div className={`p-8 rounded-3xl border ${theme.id === 'DARK_MODE' ? 'bg-emerald-900/10 border-emerald-800/30' : 'bg-emerald-50 border-emerald-100'}`}>
                                      <h4 className={`font-bold text-lg mb-6 flex items-center gap-2 ${theme.id === 'DARK_MODE' ? 'text-emerald-400' : 'text-emerald-800'}`}>
@@ -646,20 +512,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div className="flex justify-between items-center mb-6">
                       <h2 className={headingClass.replace('mb-8', 'mb-0')}>深度测验</h2>
                       <div className="flex items-center gap-3">
-                          {/* Quiz Language Selector */}
                           <div className="relative inline-flex items-center">
                                 <div className="absolute left-3 pointer-events-none text-emerald-600">
                                     <Languages className="w-4 h-4" />
                                 </div>
-                                <select
-                                    value={quizLanguage}
-                                    onChange={(e) => setQuizLanguage(e.target.value as 'CN' | 'EN')}
-                                    className={`appearance-none pl-9 pr-8 py-2 rounded-full font-bold text-xs shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
-                                        theme.id === 'DARK_MODE'
-                                        ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'
-                                        : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'
-                                    }`}
-                                >
+                                <select value={quizLanguage} onChange={(e) => setQuizLanguage(e.target.value as 'CN' | 'EN')} className={`appearance-none pl-9 pr-8 py-2 rounded-full font-bold text-xs shadow-sm transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700' : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-300 hover:shadow-md'}`}>
                                     <option value="CN">全中文模式</option>
                                     <option value="EN">English Mode</option>
                                 </select>
@@ -667,7 +524,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                                     <ChevronDown className="w-3 h-3" />
                                 </div>
                           </div>
-                          
                           <button onClick={() => onRefreshQuiz(data.quiz || [])} className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border transition-colors hover:shadow-lg ${theme.id==='DARK_MODE'?'border-slate-600 text-emerald-400 hover:bg-slate-700':'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'}`}>
                               <RefreshCw className={`w-4 h-4 ${isRefreshingQuiz?'animate-spin':''}`} /> 换一组
                           </button>
@@ -695,11 +551,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               <h3 className={`text-xl font-bold mb-2 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{questionText}</h3>
                                           </div>
                                       </div>
-                                      
                                       <div className="space-y-4">
                                           {options.map((opt, oIdx) => {
                                               let btnClass = `w-full text-left p-5 rounded-2xl border transition-all duration-200 flex justify-between items-center group `;
-                                              
                                               if (isAnswered) {
                                                   if (oIdx === q.correctAnswerIndex) {
                                                       btnClass += "bg-emerald-100 border-emerald-500 text-emerald-900 shadow-md";
@@ -711,14 +565,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               } else {
                                                   btnClass += `${theme.id === 'DARK_MODE' ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-slate-50 border-transparent hover:bg-white hover:shadow-lg hover:border-emerald-200 hover:text-emerald-900'}`;
                                               }
-
                                               return (
-                                                  <button 
-                                                    key={oIdx}
-                                                    disabled={isAnswered}
-                                                    onClick={() => setSelectedAnswers(prev => ({...prev, [qIdx]: oIdx}))}
-                                                    className={btnClass}
-                                                  >
+                                                  <button key={oIdx} disabled={isAnswered} onClick={() => setSelectedAnswers(prev => ({...prev, [qIdx]: oIdx}))} className={btnClass}>
                                                       <span className="font-medium">{opt}</span>
                                                       {isAnswered && oIdx === q.correctAnswerIndex && <CheckCircle2 className="w-6 h-6 text-emerald-600" />}
                                                       {isAnswered && selectedAnswers[qIdx] === oIdx && oIdx !== q.correctAnswerIndex && <XCircle className="w-6 h-6 text-red-500" />}
@@ -726,7 +574,6 @@ const Dashboard: React.FC<DashboardProps> = ({
                                               );
                                           })}
                                       </div>
-
                                       {isAnswered && (
                                           <div className={`mt-8 p-6 rounded-2xl flex items-start gap-4 animate-fadeIn ${isCorrect ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900'}`}>
                                               <AlertCircle className="w-6 h-6 shrink-0 mt-0.5" />
@@ -770,9 +617,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </div>
                    ) : (
                        <div ref={planRef} className={`${cardBaseClass} p-8 md:p-12 relative`}>
-                            {/* Vertical Line */}
                             <div className="absolute left-10 md:left-14 top-12 bottom-12 w-0.5 bg-slate-200"></div>
-
                             <div className="space-y-12 relative">
                                 {data.actionPlan.map((day, i) => (
                                     <div key={i} className="flex gap-8 relative group">
@@ -780,9 +625,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                             {day.day}
                                         </div>
                                         <div className="flex-1 pt-1">
-                                            <h3 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>
-                                                {day.focus}
-                                            </h3>
+                                            <h3 className={`text-2xl font-bold mb-4 ${theme.id === 'DARK_MODE' ? 'text-white' : 'text-slate-800'}`}>{day.focus}</h3>
                                             <div className={`p-8 rounded-3xl ${theme.id === 'DARK_MODE' ? 'bg-white/5' : 'bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow'}`}>
                                                 <ul className="space-y-4">
                                                     {day.tasks.map((task, ti) => (
@@ -816,14 +659,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           );
       
       default:
-        return <div className="p-10 text-center opacity-50">Content Loading or Module Not Active...</div>;
+        return <div className="p-10 text-center opacity-50">Content Loading...</div>;
     }
   };
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-transparent transition-colors duration-500 relative">
-       
-       {/* Mobile Header Trigger */}
        <div className="md:hidden sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-200 px-4 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-slate-800">
                 <BookOpen className="w-5 h-5 text-emerald-600" />
@@ -833,18 +674,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <Menu className="w-5 h-5 text-slate-600" />
             </button>
        </div>
-
-       {/* SIDEBAR NAVIGATION - Glassmorphic */}
        <aside className={`fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} ${theme.sidebarClass} flex flex-col shadow-2xl md:shadow-none h-screen`}>
-           
-           {/* Mobile Close Button */}
            <div className="md:hidden absolute top-4 right-4">
                <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-slate-400 hover:text-red-500">
                    <X className="w-6 h-6" />
                </button>
            </div>
-
-           {/* Sidebar Header */}
            <div className="p-8 pb-6">
                <div className="flex items-center gap-3 mb-10 cursor-pointer group" onClick={onBack}>
                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-white/10 text-white' : 'bg-gradient-to-br from-emerald-400 to-teal-500 text-white'}`}>
@@ -854,19 +689,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                        <h1 className={`font-black text-xl tracking-tighter ${theme.id==='ROYAL_PURPLE' || theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'text-white' : 'text-slate-800'}`}>BookMaster</h1>
                    </div>
                </div>
-               
-               {/* Nav Items - Pill Style */}
                <nav className="space-y-2">
                    {tabs.map(tab => (
-                       <button
-                         key={tab.id}
-                         onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }}
-                         className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${
-                             activeTab === tab.id 
-                             ? `${theme.activeTabClass}` 
-                             : `hover:bg-black/5 opacity-70 hover:opacity-100 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'hover:bg-white/10 text-slate-400' : 'text-slate-600'}`
-                         }`}
-                       >
+                       <button key={tab.id} onClick={() => { setActiveTab(tab.id); setIsSidebarOpen(false); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl font-bold text-sm transition-all duration-300 ${activeTab === tab.id ? `${theme.activeTabClass}` : `hover:bg-black/5 opacity-70 hover:opacity-100 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'hover:bg-white/10 text-slate-400' : 'text-slate-600'}`}`}>
                            <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? '' : 'opacity-70'}`} />
                            {tab.label}
                            {activeTab === tab.id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-current"></div>}
@@ -874,64 +699,29 @@ const Dashboard: React.FC<DashboardProps> = ({
                    ))}
                </nav>
            </div>
-
-           {/* Sidebar Footer (Optimized Function Keys) */}
            <div className={`mt-auto p-6 ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-black/20' : 'bg-white/40 backdrop-blur-sm border-t border-slate-200/50'}`}>
                <div className="space-y-4">
-                    
-                    {/* Mode & Export Row */}
                    <div className="grid grid-cols-2 gap-3">
-                       <button 
-                         onClick={() => onSetComplexity(complexity === 'NORMAL' ? 'KIDS' : 'NORMAL')}
-                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-[10px] font-bold transition-all hover:-translate-y-1 ${
-                            complexity === 'KIDS' 
-                            ? 'bg-yellow-100 border-yellow-200 text-yellow-800 shadow-sm' 
-                            : `${theme.id === 'DARK_MODE' ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-100 text-slate-600 hover:shadow-md'}`
-                         }`}
-                       >
+                       <button onClick={() => onSetComplexity(complexity === 'NORMAL' ? 'KIDS' : 'NORMAL')} className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-[10px] font-bold transition-all hover:-translate-y-1 ${complexity === 'KIDS' ? 'bg-yellow-100 border-yellow-200 text-yellow-800 shadow-sm' : `${theme.id === 'DARK_MODE' ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-white border-slate-100 text-slate-600 hover:shadow-md'}`}`}>
                            <span className="text-xl mb-1">{complexity === 'KIDS' ? '🧸' : '🎓'}</span>
                            {complexity === 'KIDS' ? '儿童模式' : '专业模式'}
                        </button>
-
-                       <button 
-                         onClick={() => setExportModalOpen(true)}
-                         className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-[10px] font-bold transition-all hover:-translate-y-1 ${
-                            theme.id === 'DARK_MODE' 
-                            ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700' 
-                            : 'bg-white border-slate-100 text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:shadow-md'
-                         }`}
-                       >
-                           <Sparkles className="w-5 h-5 mb-1 text-emerald-500" />
-                           导出报告
+                       <button onClick={() => setExportModalOpen(true)} className={`flex flex-col items-center justify-center p-3 rounded-2xl border text-[10px] font-bold transition-all hover:-translate-y-1 ${theme.id === 'DARK_MODE' ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700' : 'bg-white border-slate-100 text-slate-600 hover:text-emerald-600 hover:border-emerald-200 hover:shadow-md'}`}>
+                           <Sparkles className="w-5 h-5 mb-1 text-emerald-500" /> 导出报告
                        </button>
                    </div>
-
-                   {/* Theme Dropdown */}
                    <div className="relative">
-                       <button 
-                         onClick={() => setShowThemeMenu(!showThemeMenu)}
-                         className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all hover:shadow-md ${
-                            theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' 
-                            ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700' 
-                            : 'bg-white border-slate-100 text-slate-700 hover:bg-white'
-                         }`}
-                       >
+                       <button onClick={() => setShowThemeMenu(!showThemeMenu)} className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all hover:shadow-md ${theme.id === 'DARK_MODE' || theme.id === 'CYBERPUNK' ? 'bg-slate-800 border-slate-700 text-white hover:bg-slate-700' : 'bg-white border-slate-100 text-slate-700 hover:bg-white'}`}>
                            <div className="flex items-center gap-2">
                                <LayoutGrid className="w-4 h-4 text-slate-400" />
                                <span className="text-xs font-bold">主题风格</span>
                            </div>
                            <span className="text-[10px] opacity-60 bg-slate-100 px-2 py-0.5 rounded-md font-medium">{theme.name}</span>
                        </button>
-
-                       {/* Popover Menu */}
                        {showThemeMenu && (
                            <div className="absolute bottom-full left-0 w-full mb-3 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-100 p-2 grid grid-cols-1 gap-1 max-h-64 overflow-y-auto z-50 animate-fadeIn no-scrollbar">
                                {themes.map(t => (
-                                   <button 
-                                     key={t.id}
-                                     onClick={() => { onSelectTheme(t.id); setShowThemeMenu(false); }}
-                                     className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold border transition-all ${t.id === theme.id ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm' : 'border-transparent hover:bg-slate-50 text-slate-600'}`}
-                                   >
+                                   <button key={t.id} onClick={() => { onSelectTheme(t.id); setShowThemeMenu(false); }} className={`flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold border transition-all ${t.id === theme.id ? 'bg-emerald-50 border-emerald-100 text-emerald-700 shadow-sm' : 'border-transparent hover:bg-slate-50 text-slate-600'}`}>
                                        <div className={`w-3 h-3 rounded-full ${t.bgClass} border border-slate-200 shadow-sm`}></div>
                                        {t.name}
                                    </button>
@@ -939,39 +729,19 @@ const Dashboard: React.FC<DashboardProps> = ({
                            </div>
                        )}
                    </div>
-
-                   {/* NEW: Read Next Book Action Button */}
-                   <button 
-                      onClick={onBack}
-                      className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-95 mt-4 ${
-                          theme.id === 'DARK_MODE' 
-                          ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-900/20' 
-                          : 'bg-slate-900 text-white hover:bg-emerald-600 shadow-slate-900/20 hover:shadow-emerald-500/30'
-                      }`}
-                   >
-                       <PlusCircle className="w-4 h-4" />
-                       读下一本书
+                   <button onClick={onBack} className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-xs transition-all shadow-lg hover:scale-[1.02] active:scale-95 mt-4 ${theme.id === 'DARK_MODE' ? 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-900/20' : 'bg-slate-900 text-white hover:bg-emerald-600 shadow-slate-900/20 hover:shadow-emerald-500/30'}`}>
+                       <PlusCircle className="w-4 h-4" /> 读下一本书
                    </button>
                </div>
            </div>
        </aside>
-
-       {/* Overlay for mobile sidebar */}
        {isSidebarOpen && (
-           <div 
-             className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
-             onClick={() => setIsSidebarOpen(false)}
-           />
+           <div className="md:hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsSidebarOpen(false)} />
        )}
-
-       {/* RIGHT CONTENT AREA */}
        <main className="flex-1 overflow-y-auto h-screen p-6 md:p-12 relative scroll-smooth">
-           {/* Top decorative gradient line */}
            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 opacity-50"></div>
            {renderContent()}
        </main>
-
-       {/* Modals */}
        <SocialShareModal isOpen={shareModalOpen} onClose={() => setShareModalOpen(false)} data={shareData} />
        <ExportReportModal isOpen={exportModalOpen} onClose={() => setExportModalOpen(false)} data={data} />
     </div>

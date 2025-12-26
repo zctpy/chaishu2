@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { X, Download, Share2, Sparkles, BookOpen, Twitter, Facebook, Quote, Palette, Circle } from 'lucide-react';
+import { X, Download, Share2, Sparkles, BookOpen, Twitter, Facebook, Quote, Palette, Circle, LayoutTemplate } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -28,13 +28,13 @@ const COLORS = [
     { id: 'OBSIDIAN', name: '黑金流光', from: '#09090b', to: '#27272a', text: '#fcd34d', overlay: 'bg-gradient-to-tr from-yellow-500/10 via-transparent to-yellow-200/5' },
     { id: 'OCEAN', name: '深海极光', from: '#0f172a', to: '#0e7490', text: '#e0f2fe', overlay: 'bg-gradient-to-t from-cyan-400/10 to-blue-600/20' },
     { id: 'BEIGE', name: '护眼米黄', from: '#fdfbf7', to: '#e8e4d9', text: '#4a4740', overlay: 'bg-gradient-to-br from-orange-100/30 to-yellow-100/30' },
-    { id: 'ZEN', name: '禅意墨绿', from: '#1a2e26', to: '#26423a', text: '#d1fae5', overlay: 'bg-gradient-to-br from-emerald-900/40 to-teal-900/40' },
+    { id: 'SOFT_GREEN', name: '柔光浅绿', from: '#f0fdf4', to: '#dcfce7', text: '#14532d', overlay: 'bg-gradient-to-br from-emerald-100/40 to-green-50/40' },
 ];
 
 const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, data }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedColorIdx, setSelectedColorIdx] = useState(0);
+  const [selectedColorIdx, setSelectedColorIdx] = useState(3); // Default to Beige
   const [isPureMode, setIsPureMode] = useState(false);
 
   if (!isOpen || !data) return null;
@@ -126,11 +126,12 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
               ref={cardRef} 
               className="w-[360px] shrink-0 relative flex flex-col overflow-hidden shadow-2xl transition-all duration-500 font-sans"
               style={{
-                  background: isPureMode ? '#ffffff' : `linear-gradient(135deg, ${activeColor.from}, ${activeColor.to})`,
-                  color: isPureMode ? '#1e293b' : activeColor.text,
+                  background: `linear-gradient(135deg, ${activeColor.from}, ${activeColor.to})`,
+                  color: activeColor.text,
                   minHeight: '640px',
               }}
             >
+                {/* Visual Effects - Hidden in Pure Mode for cleaner look, but gradients remain */}
                 {!isPureMode && (
                     <>
                         {/* 1. Noise Texture Overlay */}
@@ -151,15 +152,15 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                 
                 {/* Minimalist Border for Pure Mode */}
                 {isPureMode && (
-                     <div className="absolute inset-6 border border-slate-900 pointer-events-none"></div>
+                     <div className="absolute inset-6 border border-current opacity-20 pointer-events-none"></div>
                 )}
 
                 {/* Content Container */}
                 <div className={`relative z-30 flex flex-col h-full ${isPureMode ? 'p-12' : 'p-10'}`}>
                     
-                    {/* Header: Label */}
+                    {/* Header: Label (Standard Mode Only) */}
                     {!isPureMode && (
-                        <div className="flex justify-between items-center mb-8 opacity-80">
+                        <div className="flex justify-between items-center mb-8 opacity-80 shrink-0">
                             <div className="flex items-center gap-2">
                                 <BookOpen className="w-4 h-4" />
                                 <span className="text-xs font-bold tracking-[0.2em] uppercase">读书感悟</span>
@@ -168,11 +169,9 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                         </div>
                     )}
                     
-                    {isPureMode && <div className="mb-8"></div>}
-
-                    {/* Book Title Area */}
+                    {/* Book Title Area (Standard Mode Only) */}
                     {!isPureMode && (
-                        <div className="mb-10 text-center">
+                        <div className="mb-10 text-center shrink-0">
                         <h2 className="text-2xl font-black leading-tight mb-2 tracking-wide font-serif-sc drop-shadow-sm">
                             {data.title}
                         </h2>
@@ -187,33 +186,33 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                         </div>
                     )}
 
-                    {/* Main Content Area */}
-                    <div className="flex-1 flex flex-col justify-center relative mb-8">
+                    {/* Main Content Area - Center in Pure Mode */}
+                    <div className={`flex-1 flex flex-col justify-center relative ${isPureMode ? 'py-4' : 'mb-8'}`}>
+                        {/* Quotes - Only in Standard Mode */}
                         {!isPureMode && <Quote className="absolute -top-6 -left-4 w-12 h-12 opacity-10 transform -scale-x-100" />}
-                        {isPureMode && <div className="text-4xl font-serif font-black mb-4">“</div>}
                         
                         {/* Quote Text */}
                         <p className={`font-serif leading-relaxed mb-6 font-bold relative z-10 drop-shadow-sm ${getTextClass(data.text.length)}`}>
                             {data.text}
                         </p>
 
-                        {/* Translation (if exists) - Visually Separated */}
+                        {/* Translation (if exists) */}
                         {data.subText && (
-                            <div className={`relative pl-4 border-l-2 py-1 mt-2 ${isPureMode ? 'border-slate-300' : 'border-white/30'}`}>
+                            <div className={`relative pl-4 border-l-2 py-1 mt-2 border-current/30`}>
                                 <p className="text-sm md:text-base opacity-90 font-light leading-relaxed tracking-wide">
                                     {data.subText}
                                 </p>
                             </div>
                         )}
                         
+                        {/* Quotes - Only in Standard Mode */}
                         {!isPureMode && <Quote className="absolute -bottom-6 -right-4 w-12 h-12 opacity-10" />}
-                        {isPureMode && <div className="text-4xl font-serif font-black mt-2 text-right">”</div>}
                     </div>
 
                     {/* Footer: Insight & Brand */}
-                    <div className={`mt-auto pt-6 border-t ${isPureMode ? 'border-slate-200' : 'border-white/15'}`}>
+                    <div className={`mt-auto pt-6 border-t border-current/10 shrink-0`}>
                         {data.footer && (
-                            <div className="mb-6">
+                            <div className={isPureMode ? "" : "mb-6"}>
                                 <div className="flex items-center gap-2 mb-2">
                                      {!isPureMode && <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80"></span>}
                                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-70">核心洞见</span>
@@ -224,21 +223,18 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                             </div>
                         )}
                         
-                        <div className="flex justify-between items-end opacity-50">
-                             <div className="flex items-center gap-1.5">
-                                 {isPureMode ? (
-                                    <div className="font-serif italic text-xs">{data.title}</div>
-                                 ) : (
-                                    <>
-                                        <div className="w-5 h-5 border border-current rounded-full flex items-center justify-center">
-                                            <span className="text-[10px] font-bold">AI</span>
-                                        </div>
-                                        <span className="text-[10px] font-bold tracking-widest uppercase">BookMaster</span>
-                                    </>
-                                 )}
-                             </div>
-                             {!isPureMode && <div className="text-[10px] tracking-widest">智能拆书</div>}
-                        </div>
+                        {/* Brand Footer - Only in Standard Mode */}
+                        {!isPureMode && (
+                            <div className="flex justify-between items-end opacity-50">
+                                 <div className="flex items-center gap-1.5">
+                                    <div className="w-5 h-5 border border-current rounded-full flex items-center justify-center">
+                                        <span className="text-[10px] font-bold">AI</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold tracking-widest uppercase">BookMaster</span>
+                                 </div>
+                                 <div className="text-[10px] tracking-widest">智能拆书</div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -247,11 +243,16 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
             <div className="mt-8 flex gap-3 justify-center items-center">
                 {/* Pure Mode Toggle */}
                 <button
-                    onClick={() => setIsPureMode(true)}
-                    className={`w-9 h-9 rounded-full shadow-md border bg-white flex items-center justify-center transition-all duration-300 ${isPureMode ? 'border-slate-800 scale-110 ring-2 ring-slate-200' : 'border-slate-200 hover:scale-105'}`}
-                    title="纯净版 (黑白)"
+                    onClick={() => setIsPureMode(!isPureMode)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 ${
+                        isPureMode 
+                        ? 'bg-slate-800 text-white shadow-lg scale-105' 
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                    title="切换纯净模式 (只保留金句和解析)"
                 >
-                    <Circle className="w-4 h-4 text-slate-800" />
+                    <LayoutTemplate className="w-3 h-3" />
+                    {isPureMode ? '纯净版：开' : '纯净版：关'}
                 </button>
                 
                 <div className="w-px h-6 bg-slate-300 mx-2"></div>
@@ -259,8 +260,8 @@ const SocialShareModal: React.FC<SocialShareModalProps> = ({ isOpen, onClose, da
                 {COLORS.map((c, i) => (
                     <button
                         key={c.id}
-                        onClick={() => { setSelectedColorIdx(i); setIsPureMode(false); }}
-                        className={`w-9 h-9 rounded-full shadow-lg border-2 transition-all duration-300 ${!isPureMode && selectedColorIdx === i ? 'border-slate-800 scale-110 ring-2 ring-slate-300' : 'border-white hover:scale-105'}`}
+                        onClick={() => setSelectedColorIdx(i)}
+                        className={`w-9 h-9 rounded-full shadow-lg border-2 transition-all duration-300 ${selectedColorIdx === i ? 'border-slate-800 scale-110 ring-2 ring-slate-300' : 'border-white hover:scale-105'}`}
                         style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}
                         title={c.name}
                     />

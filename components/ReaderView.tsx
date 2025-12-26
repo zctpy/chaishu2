@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Volume2, Loader2, SkipForward, SkipBack, ArrowDownCircle, BookOpen, Download } from 'lucide-react';
+import { Play, Pause, Loader2, SkipForward, SkipBack, ArrowDownCircle, BookOpen, Download } from 'lucide-react';
 import { ReaderSegment, ChapterSummary } from '../types';
 import { generateSpeech, decodePCM, createWavBlob } from '../services/geminiService';
 
@@ -17,6 +17,7 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   const [currentIndex, setCurrentIndex] = useState(0);
   const [readLanguage, setReadLanguage] = useState<'original' | 'translation'>('original');
   const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const audioContextRef = useRef<AudioContext | null>(null);
   const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -24,7 +25,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
   
   // Audio state refs
   const audioBufferRef = useRef<AudioBuffer | null>(null);
-  const rawArrayBufferRef = useRef<ArrayBuffer | null>(null); // Keep original for download
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
   const isManuallyPausedRef = useRef<boolean>(false);
@@ -73,7 +73,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         pausedTimeRef.current = 0;
         startTimeRef.current = 0;
         audioBufferRef.current = null;
-        rawArrayBufferRef.current = null;
     }
   };
 
@@ -90,12 +89,9 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
 
       source.onended = () => {
         // Only trigger next segment if we are NOT manually paused
-        // and check if isManuallyPausedRef is false
         if (!isManuallyPausedRef.current) {
              if (segments && currentIndex < segments.length - 1) {
                 setCurrentIndex(prev => prev + 1);
-                // Trigger next play via effect or directly
-                // We rely on effect on currentIndex to trigger new play if isPlaying is true
              } else {
                 setIsPlaying(false);
                 setCurrentIndex(0);
@@ -142,9 +138,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         const arrayBuffer = await generateSpeech(textToSpeak);
         if (!arrayBuffer) throw new Error("Failed to generate speech");
 
-        // Keep raw buffer for download
-        rawArrayBufferRef.current = arrayBuffer;
-
         const ctx = await initAudioContext();
         const audioBuffer = decodePCM(ctx, arrayBuffer);
         
@@ -184,32 +177,70 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     isManuallyPausedRef.current = false;
     setCurrentIndex(index);
     setIsPlaying(true);
-    // Note: The useEffect on currentIndex will handle playback trigger
   };
 
-  const handleDownloadAudio = () => {
-      // Check if we have an audio buffer for the current segment
-      // We can only download what has been loaded/generated
-      if (!rawArrayBufferRef.current && !audioBufferRef.current) {
-          alert("请先播放音频以生成数据，然后再点击下载。");
-          return;
-      }
-      
-      // If we only have decoded AudioBuffer, we can't easily go back to original PCM arraybuffer 
-      // without re-encoding unless we kept it.
-      // So we used `rawArrayBufferRef` to store the raw response from API.
-      
-      if (rawArrayBufferRef.current) {
-         // Convert raw PCM to WAV
-         // The API returns 24000Hz PCM usually
-         const wavBlob = createWavBlob(rawArrayBufferRef.current, 24000);
-         const url = URL.createObjectURL(wavBlob);
-         const a = document.createElement('a');
-         a.href = url;
-         a.download = `segment_${currentIndex + 1}_${Date.now()}.wav`;
-         a.click();
-         setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+  // --- Full Audio Download Logic ---
+  const handleDownloadFullAudio = async () => {
+    if (!segments || segments.length === 0) return;
+    
+    setIsDownloading(true);
+    
+    try {
+        const buffers: ArrayBuffer[] = [];
+        
+        // Loop through all segments and generate/fetch audio
+        // We do this sequentially to respect API rate limits and ensure order
+        for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const textToSpeak = readLanguage === 'original' ? seg.original : seg.translation;
+            
+            if (textToSpeak && textToSpeak.trim()) {
+                const buffer = await generateSpeech(textToSpeak);
+                if (buffer) {
+                    buffers.push(buffer);
+                }
+            }
+        }
+
+        if (buffers.length === 0) {
+            alert("无法生成音频数据，请稍后重试。");
+            setIsDownloading(false);
+            return;
+        }
+
+        // Merge all PCM buffers
+        const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
+        const mergedBuffer = new Uint8Array(totalLength);
+        
+        let offset = 0;
+        for (const buffer of buffers) {
+            mergedBuffer.set(new Uint8Array(buffer), offset);
+            offset += buffer.byteLength;
+        }
+
+        // Create WAV Blob
+        // 24000 is standard for the flash-tts model
+        const wavBlob = createWavBlob(mergedBuffer.buffer, 24000);
+        
+        // Trigger Download
+        const url = URL.createObjectURL(wavBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Full_Chapter_${readLanguage === 'original' ? 'EN' : 'CN'}_${Date.now()}.wav`;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 1000);
+
+    } catch (error) {
+        console.error("Download failed", error);
+        alert("合成音频时出错，请检查网络连接。");
+    } finally {
+        setIsDownloading(false);
+    }
   };
 
   // Effect to trigger audio when index changes AND we are in playing state
@@ -218,13 +249,9 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
         // Reset paused time for new segment
         pausedTimeRef.current = 0;
         audioBufferRef.current = null;
-        rawArrayBufferRef.current = null;
         playSegmentAudio(currentIndex, 0);
     }
   }, [currentIndex]); 
-  // NOTE: do NOT add isPlaying to deps, or it will loop. 
-  // We only want to react to index changes if we are already playing.
-  // togglePlay handles the resume state.
 
   const handleLanguageSwitch = (newLang: 'original' | 'translation') => {
     if (readLanguage === newLang) return;
@@ -239,7 +266,6 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
     setReadLanguage(newLang);
     stopAudio(false);
     audioBufferRef.current = null; // Clear buffer as content changed
-    rawArrayBufferRef.current = null;
 
     if (isPlaying) {
         playSegmentAudio(currentIndex, offset, newLang);
@@ -342,12 +368,16 @@ const ReaderView: React.FC<ReaderViewProps> = ({ segments, isLoading, onGenerate
              {/* Download Audio Button */}
              <div className="w-px h-6 bg-slate-200 mx-1"></div>
              <button 
-               onClick={handleDownloadAudio}
-               className="p-2 rounded-lg text-slate-500 hover:bg-white hover:text-blue-600 hover:shadow-sm transition-all disabled:opacity-30"
-               disabled={isAudioLoading || (!rawArrayBufferRef.current && !audioBufferRef.current)}
-               title="下载原文朗读音频"
+               onClick={handleDownloadFullAudio}
+               disabled={isDownloading || isAudioLoading}
+               className={`p-2 rounded-lg transition-all flex items-center justify-center ${isDownloading ? 'text-emerald-500 bg-emerald-50' : 'text-emerald-600 hover:bg-white hover:shadow-sm'}`}
+               title="下载全章朗读音频"
              >
-                <Download className="w-4 h-4" />
+                {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                    <Download className="w-4 h-4" />
+                )}
              </button>
          </div>
       </div>

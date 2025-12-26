@@ -5,10 +5,9 @@ import { BookSummary, Quote, VocabItem, QuizQuestion, ActionDay, ReaderSegment, 
 const apiKey = process.env.API_KEY || '';
 const ai = new GoogleGenAI({ apiKey });
 
-const modelName = 'gemini-2.5-flash';
+const modelName = 'gemini-3-pro-preview'; // Upgraded for complex text tasks
 const ttsModelName = 'gemini-2.5-flash-preview-tts';
-// Fallback to 2.0-flash-exp as 2.5-preview might be unavailable in some regions/tiers
-const liveModelName = 'gemini-2.0-flash-exp';
+const liveModelName = 'gemini-2.5-flash-native-audio-preview-09-2025';
 
 // Global cache for TTS to improve performance
 const speechCache = new Map<string, ArrayBuffer>();
@@ -34,7 +33,7 @@ const generateContentWithRetry = async (model: string, params: any, retries = 5,
     if (retries > 0 && isRateLimit) {
        console.warn(`Rate limit hit for ${model}. Retrying in ${backoff}ms... (Attempts left: ${retries})`);
        await delay(backoff);
-       return generateContentWithRetry(model, params, retries - 1, backoff * 1.5); // Increase backoff by 1.5x each time
+       return generateContentWithRetry(model, params, retries - 1, backoff * 1.5); 
     }
     throw e;
   }
@@ -183,41 +182,26 @@ export const createWavBlob = (audioBuffer: ArrayBuffer, sampleRate: number = 240
   const buffer = new ArrayBuffer(44 + length);
   const view = new DataView(buffer);
   
-  // Helper to write string
   const writeString = (view: DataView, offset: number, string: string) => {
     for (let i = 0; i < string.length; i++) {
       view.setUint8(offset + i, string.charCodeAt(i));
     }
   };
 
-  // RIFF identifier
   writeString(view, 0, 'RIFF');
-  // file length
   view.setUint32(4, 36 + length, true);
-  // RIFF type
   writeString(view, 8, 'WAVE');
-  // format chunk identifier
   writeString(view, 12, 'fmt ');
-  // format chunk length
   view.setUint32(16, 16, true);
-  // sample format (raw)
   view.setUint16(20, 1, true);
-  // channel count
   view.setUint16(22, numOfChannels, true);
-  // sample rate
   view.setUint32(24, sampleRate, true);
-  // byte rate (sample rate * block align)
   view.setUint32(28, sampleRate * 2, true);
-  // block align (channel count * bytes per sample)
   view.setUint16(32, 2, true);
-  // bits per sample
   view.setUint16(34, 16, true);
-  // data chunk identifier
   writeString(view, 36, 'data');
-  // data chunk length
   view.setUint32(40, length, true);
   
-  // write the PCM samples
   const pcmData = new Uint8Array(audioBuffer);
   const dataView = new Uint8Array(buffer, 44);
   dataView.set(pcmData);
@@ -299,7 +283,7 @@ export const generateVocab = async (text: string, existingWords: VocabItem[] = [
     config: {
       responseMimeType: "application/json",
       responseSchema: vocabSchema,
-      temperature: 0.9, // Increase temperature for variety
+      temperature: 0.9, 
       systemInstruction: getSystemInstruction(complexity, "Vocabulary builder"),
     }
   });
@@ -375,57 +359,76 @@ export const generateReaderContent = async (text: string, focusChapter?: string,
 }
 
 export const generateReview = async (text: string, style: ReviewStyle, language: 'CN' | 'EN'): Promise<BookReview> => {
-  // Determine specific prompts based on style
   let styleInstruction = `Style: ${style}.`;
   
   if (style === 'LUXUN') {
       styleInstruction = `Role: You are Lu Xun (鲁迅).
-      Task: Write a biting, socially critical book review using semi-classical vernacular (半文半白) style typical of Lu Xun's essays (杂文).
-      - Tone: Cynical, sharp, observing the "cannibalism" (吃人) or numbness of society, but holding a torch for the future.
-      - Use metaphors like "iron house", "passers-by".
-      - Critique the book's value to the current era and human nature.
-      - 'titles': Must be in Lu Xun's essay title style (e.g., "热风", "而已集" style).
-      - 'oneSentenceSummary': A sharp, memorable aphorism.`;
-  } else if (style === 'GENTLE') {
-      styleInstruction = `Role: Objective Critic.
-      Task: Write a NEUTRAL, OBJECTIVE, and BALANCED summary and review. 
-      - Tone: Professional, calm, unbiased. Focus on facts, main arguments, and structure.
-      - Avoid excessive praise or harsh criticism.`;
+      Task: Write a cold, sharp, and socially critical book review.
+      - Optimization: Do NOT over-rely on the "Iron House" metaphor. Instead, use Lu Xun's signature "Wild Grass" (野草) imagery: cold stones, pale flames, midnight observations, and the struggle between numbness and awakening.
+      - Tone: Cynical, concise, using semi-classical vernacular (半文半白). Focus on human nature and the "cannibalism" of silent structures.
+      - Sentence structure: Use sharp contrasts and repetitive emphasis typical of his essays.
+      - 'titles': Sharp and provocative (e.g., in the style of "热风" or "坟").`;
+  } else if (style === 'SUDONGPO') {
+      styleInstruction = `Role: You are Su Dongpo (苏轼).
+      Task: Write a philosophical, broad-minded, and optimistic book review.
+      - Tone: Elegant, natural (行云流水), combining nature imagery (moon, tides, bamboo) with a sense of "detachment" (超脱).
+      - Style: Philosophical yet accessible, finding joy in adversity.
+      - 'oneSentenceSummary': A poetic couplet.`;
+  } else if (style === 'AUSTEN') {
+      styleInstruction = `Role: You are Jane Austen.
+      Task: Write a book review filled with elegant irony, social wit, and keen observation of manners.
+      - Tone: Polite yet biting, focusing on social dynamics, character absurdities, and moral standing.
+      - Style: Witty dialogue-style analysis, "the little piece of ivory."
+      - 'oneSentenceSummary': A witty observation in the style of "Pride and Prejudice."`;
+  } else if (style === 'MAUGHAM') {
+      styleInstruction = `Role: You are W. Somerset Maugham.
+      Task: Write a book review that is world-weary, cynical, yet compassionate towards human weaknesses.
+      - Tone: Observational, focusing on the gap between what people pretend to be and who they are.
+      - Style: The traveler's perspective, "the razor's edge" of morality, simple yet profound storytelling.
+      - 'oneSentenceSummary': A dry, slightly cynical verdict.`;
+  } else if (style === 'NABOKOV') {
+      styleInstruction = `Role: You are Vladimir Nabokov.
+      Task: Write a book review focusing on "aesthetic bliss," sensory detail, and intricate metaphors.
+      - Tone: Highly sensory, aristocratic, playful with language, and precise (butterfly-like precision).
+      - Style: Rich, crystalline prose, focusing on the "shimmering" details and artistic structure over message.
+      - 'oneSentenceSummary': A kaleidoscopic metaphor.`;
+  } else if (style === 'RUSSELL') {
+      styleInstruction = `Role: You are Bertrand Russell.
+      Task: Write a book review that is logically rigorous, analytic, and skeptical.
+      - Tone: Lucid, rational, and dryly witty. Focus on whether the book's arguments are sound and what their social implications are.
+      - Style: Clear definitions, "common sense" analysis, and a focus on the conflict between reason and emotion.
+      - 'oneSentenceSummary': A sharp, logical verdict or a witty proposition.`;
   } else if (style === 'LIBAI') {
       styleInstruction = `Role: You are the poet Li Bai (李白). 
       Task: Write a *short* book review in the form of Classical Chinese Poetry (古诗).
       - Constraint: The poem must be concise, strictly under 10 lines.
-      - The 'titles' should be poetic 5 or 7-character phrases.
-      - The 'oneSentenceSummary' should be a poetic couplet (对联).
-      - The 'contentMarkdown' must be the poem itself. Express bold, romantic, and unconstrained emotions. Use imagery of wine, moon, and swords.`;
+      - The 'titles': Poetic 5 or 7-character phrases.
+      - The 'oneSentenceSummary': A poetic couplet.`;
   } else if (style === 'MARKTWAIN') {
       styleInstruction = `Role: You are Mark Twain.
       Task: Write a book review full of biting humor, satire, and dry wit.
-      - Tone: Conversational, slightly cynical, observant, and funny.
-      - Poke fun at the author's quirks or the book's logic, but still deliver a genuine verdict.
-      - 'titles': Witty and satirical.
-      - 'oneSentenceSummary': A humorous punchline.`;
+      - Tone: Conversational, observational, and funny.
+      - Poke fun at author's quirks and human stupidity.`;
   }
 
-  const prompt = `Write a book review. ${styleInstruction} Language: ${language}.
+  const prompt = `Write a book review in the persona of a famous author. ${styleInstruction} Language: ${language}.
   Text: ${text.substring(0, 40000)}...`;
 
-  const response = await generateContentWithRetry("gemini-2.5-flash", {
+  const response = await generateContentWithRetry(modelName, {
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseSchema: reviewSchema,
-      temperature: style === 'LUXUN' || style === 'LIBAI' ? 0.95 : 0.7, // Higher temp for creative personas
+      temperature: 0.9, 
     }
   });
 
   return JSON.parse(response.text) as BookReview;
 };
 
-// --- PODCAST GENERATION (New Feature) ---
+// --- PODCAST GENERATION ---
 
 export const generatePodcast = async (text: string, complexity: ComplexityLevel = 'NORMAL', language: 'CN' | 'EN' = 'EN'): Promise<PodcastResult> => {
-    // Dynamic duration based on text length
     const textLen = text.length;
     let durationHint = "2-3 minutes";
     if (textLen > 15000) {
@@ -436,7 +439,6 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
         durationHint = "3-5 minutes";
     }
 
-    // 1. Generate Script
     const scriptPrompt = `
     Create a ${durationHint} podcast script discussing this book.
     Characters:
@@ -445,8 +447,8 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
     
     Target Audience: ${complexity === 'KIDS' ? "Young Children (5-8 years old)" : "Adults"}.
     Style: ${complexity === 'KIDS' 
-        ? "EXTREMELY SIMPLE. Short sentences. Fun and concise. Clear for kids. Use sound effects in brackets." 
-        : "Concise, clear, and easy to follow. Avoid complex jargon. Engaging conversation."}
+        ? "EXTREMELY SIMPLE. Short sentences. Fun and concise." 
+        : "Concise, clear, and easy to follow."}
     
     IMPORTANT: The script must be in ${language === 'CN' ? 'CHINESE (Mandarin)' : 'ENGLISH'}.
     
@@ -464,9 +466,6 @@ export const generatePodcast = async (text: string, complexity: ComplexityLevel 
 
     const result = JSON.parse(scriptResponse.text) as PodcastResult;
     
-    // 2. Generate Audio (Multi-speaker)
-    // We construct the prompt for TTS model to act out the script
-    // Explicitly instruction "TTS the following conversation" to prevent the model from generating new content
     const conversationText = `TTS the following conversation between Host and Expert:
 ${result.script.map(line => `${line.speaker}: ${line.text}`).join('\n')}`;
     
@@ -485,7 +484,7 @@ ${result.script.map(line => `${line.speaker}: ${line.text}`).join('\n')}`;
                             },
                             {
                                 speaker: 'Expert',
-                                voiceConfig: { prebuiltVoiceConfig: { voiceName: complexity === 'KIDS' ? 'Fenrir' : 'Charon' } } // Fenrir/Puck are distinct
+                                voiceConfig: { prebuiltVoiceConfig: { voiceName: complexity === 'KIDS' ? 'Fenrir' : 'Charon' } }
                             }
                         ]
                     }
@@ -505,7 +504,6 @@ ${result.script.map(line => `${line.speaker}: ${line.text}`).join('\n')}`;
         }
     } catch (e) {
         console.error("Podcast Audio Generation Failed", e);
-        // We still return the script even if audio fails
     }
 
     return result;
@@ -571,7 +569,6 @@ export const createChatSession = (systemInstruction: string) => {
 };
 
 // --- Live API Helper ---
-// Correctly separating callbacks from the config object
 export const createLiveSession = (systemInstruction: string, options: { callbacks?: any, config?: any } = {}) => {
   return ai.live.connect({
       model: liveModelName,
